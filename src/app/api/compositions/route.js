@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
+import { kv } from '@vercel/kv';
 
-// In production, use Vercel KV: import { kv } from '@vercel/kv';
-// For now, in-memory store (resets on deploy — replace with KV)
-let compositions = [];
+const KEY = 'compositions';
+const MAX = 200;
 
 export async function GET() {
-  // Production: const compositions = await kv.lrange('compositions', 0, -1);
-  return NextResponse.json(compositions.slice().reverse());
+  const raw = await kv.lrange(KEY, 0, -1);
+  const items = raw.map((s) => (typeof s === 'string' ? JSON.parse(s) : s));
+  return NextResponse.json(items);
 }
 
 export async function POST(request) {
@@ -29,11 +30,8 @@ export async function POST(request) {
     date: new Date().toISOString(),
   };
 
-  compositions.push(composition);
+  await kv.lpush(KEY, JSON.stringify(composition));
+  await kv.ltrim(KEY, 0, MAX - 1);
 
-  // Keep only last 200 compositions
-  if (compositions.length > 200) compositions = compositions.slice(-200);
-
-  // Production: await kv.lpush('compositions', JSON.stringify(composition));
   return NextResponse.json(composition, { status: 201 });
 }
