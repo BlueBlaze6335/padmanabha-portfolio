@@ -330,8 +330,8 @@ export default function StudioPage() {
       <div className="flex justify-center gap-5 mt-6 mb-4">
         {[
           { label: 'GitHub', href: 'https://github.com/BlueBlaze6335' },
-          { label: 'LinkedIn', href: '#' },
-          { label: 'Scholar', href: '#' },
+          { label: 'LinkedIn', href: 'https://www.linkedin.com/in/padmanabha-banerjee-b16800171/' },
+          { label: 'Scholar', href: 'https://scholar.google.com/citations?user=Ow9aqPcAAAAJ&hl=en' },
           { label: 'Email', href: 'mailto:pbanerjee0801@gmail.com' },
         ].map(l => (
           <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"

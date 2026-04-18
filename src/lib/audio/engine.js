@@ -18,8 +18,16 @@ export function getAudioContext() {
   if (_ctx) return _ctx;
   _ctx = new (window.AudioContext || window.webkitAudioContext)();
   _master = _ctx.createGain();
-  _master.gain.value = 0.8;
-  _master.connect(_ctx.destination);
+  _master.gain.value = 1.4;
+  // Brickwall limiter so the louder master can't clip phone speakers.
+  const limiter = _ctx.createDynamicsCompressor();
+  limiter.threshold.value = -3;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.25;
+  _master.connect(limiter);
+  limiter.connect(_ctx.destination);
   return _ctx;
 }
 
