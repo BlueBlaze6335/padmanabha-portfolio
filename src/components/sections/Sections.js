@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 // ─── Section 1: Origin ──────────────────────────────────────────
 export function Origin() {
@@ -83,9 +84,8 @@ const PROJECTS = [
   { name: 'ShowGPT', desc: 'Search inside an entire TV show library like you search the web. Multimodal RAG that watches video, indexes every scene, and answers questions with timestamps.', tag: 'Video AI · Deployed', color: '#d4ac54' },
   { name: 'VocosVC', desc: 'Voice that transforms — take one person\'s speech and make it sound like someone else, in real-time, at 48kHz.', tag: 'Voice AI · Active R&D', color: '#D85A30' },
   { name: 'HelixGraph', desc: '22 AI agents collaborating to write full screenplays. Each character carries a 5-dimensional emotional state that evolves across the narrative.', tag: 'Narrative AI', color: '#5DCAA5' },
-  { name: 'RAPID', desc: 'Real-time accent conversion — Indian English to American English at the speed of conversation.', tag: 'Audio · Research', color: '#ED93B1' },
   { name: 'Convergence', desc: 'A mathematical DJ that uses graph theory to find the optimal path through a set — matching tempo, key, and energy.', tag: 'Music AI', color: '#7F77DD' },
-  { name: 'Insaaf Files', desc: 'Automated crime documentary production — 8 agents handle research, scripting, narration, editing. End to end, in Hinglish.', tag: 'Production AI', color: '#EF9F27' },
+  { name: 'ReelGen', desc: 'Automated crime documentary production — 8 agents handle research, scripting, narration, editing. End to end, in Hinglish.', tag: 'Production AI', color: '#EF9F27' },
 ];
 
 export function Transmissions({ onPing }) {
@@ -223,18 +223,29 @@ export function Wavelength() {
       <p className="font-body text-[14px] text-cream-dim leading-[1.8] mb-3">
         Technical deep-dives, philosophical tangents, and whatever else needs writing down.
       </p>
-      {POSTS.map((p, i) => (
-        <div key={i} className="py-4 border-b border-cream-ghost cursor-pointer hover:pl-2 transition-all group">
-          <span className="mono-label text-cream-dim/35">{p.date}</span>
-          <h3 className="font-body text-[20px] font-normal text-cream my-1 group-hover:text-[var(--gold)] transition-colors">{p.title}</h3>
-          {p.preview && <p className="font-body text-[13px] text-cream-dim leading-[1.6]">{p.preview}</p>}
-          <div className="mt-1.5 flex gap-1">
-            {p.tags.map(t => (
-              <span key={t} className="font-mono text-[8px] tracking-wider uppercase text-[var(--gold)]/30 px-2 py-0.5 rounded-full bg-[var(--gold-ghost)]">{t}</span>
-            ))}
+      {POSTS.map((p, i) => {
+        const inner = (
+          <>
+            <span className="mono-label text-cream-dim/35">{p.date}</span>
+            <h3 className="font-body text-[20px] font-normal text-cream my-1 group-hover:text-[var(--gold)] transition-colors">{p.title}</h3>
+            {p.preview && <p className="font-body text-[13px] text-cream-dim leading-[1.6]">{p.preview}</p>}
+            <div className="mt-1.5 flex gap-1">
+              {p.tags.map(t => (
+                <span key={t} className="font-mono text-[8px] tracking-wider uppercase text-[var(--gold)]/30 px-2 py-0.5 rounded-full bg-[var(--gold-ghost)]">{t}</span>
+              ))}
+            </div>
+          </>
+        );
+        return p.slug ? (
+          <Link key={i} href={`/blog/${p.slug}`} className="block py-4 border-b border-cream-ghost hover:pl-2 transition-all group">
+            {inner}
+          </Link>
+        ) : (
+          <div key={i} className="py-4 border-b border-cream-ghost group">
+            {inner}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

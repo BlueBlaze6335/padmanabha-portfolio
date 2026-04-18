@@ -39,8 +39,18 @@ export default function HomePage() {
   const goTo = useCallback((newIdx) => {
     if (newIdx < 0 || newIdx >= SECTIONS.length || newIdx === idx || fading) return;
 
-    // Section 8 = studio page
+    // Section 8 = studio page — play the C3 transition and drop the drone
+    // to section 8's level before navigating, so the AudioContext (which
+    // outlives client-side nav) carries the note into /studio.
     if (newIdx === 7) {
+      resumeAudio();
+      if (!audioOn) {
+        startDrone(newIdx);
+        setAudioOn(true);
+      } else {
+        updateDrone(newIdx);
+      }
+      playTransitionNote(SECTIONS[newIdx].freq);
       router.push('/studio');
       return;
     }
