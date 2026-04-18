@@ -147,7 +147,7 @@ export function Resonance({ onPing }) {
 // ─── Section 5: Archive ─────────────────────────────────────────
 const FILTERS = ['All', 'Painting', 'Photography', 'Digital'];
 
-export function Archive() {
+export function Archive({ onPing }) {
   const [filter, setFilter] = useState('All');
   return (
     <div className="max-w-[560px] mx-auto px-4">
@@ -161,7 +161,7 @@ export function Archive() {
       </div>
       <div className="grid grid-cols-3 gap-1.5">
         {[180,240,160,220,170,200].map((h,i) => (
-          <div key={i} className="rounded-md border border-cream-ghost cursor-pointer hover:border-[var(--gold-dim)] hover:scale-[1.02] transition-all overflow-hidden relative group" style={{ height: h, background: `linear-gradient(${120+i*35}deg, rgba(58,45,126,0.15), rgba(212,172,84,0.05))` }}>
+          <div key={i} onClick={() => onPing?.(i)} className="rounded-md border border-cream-ghost cursor-pointer hover:border-[var(--gold-dim)] hover:scale-[1.02] transition-all overflow-hidden relative group" style={{ height: h, background: `linear-gradient(${120+i*35}deg, rgba(58,45,126,0.15), rgba(212,172,84,0.05))` }}>
             <div className="absolute inset-0 bg-gradient-to-t from-[#07070dcc] to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
               <div>
                 <p className="font-body text-[12px] text-cream">Untitled {['I','II','III','IV','V','VI'][i]}</p>
@@ -215,7 +215,7 @@ const POSTS = [
   { title: 'Why Van Gogh understood neural networks', date: 'Coming soon', preview: 'Expressionism as a compression algorithm.', tags: ['art', 'AI'] },
 ];
 
-export function Wavelength() {
+export function Wavelength({ onPing }) {
   return (
     <div className="max-w-[520px] mx-auto px-4">
       <h2 className="section-title mb-1">Wavelength</h2>
@@ -237,11 +237,11 @@ export function Wavelength() {
           </>
         );
         return p.slug ? (
-          <Link key={i} href={`/blog/${p.slug}`} className="block py-4 border-b border-cream-ghost hover:pl-2 transition-all group">
+          <Link key={i} href={`/blog/${p.slug}`} onClick={() => onPing?.(i)} className="block py-4 border-b border-cream-ghost hover:pl-2 transition-all group">
             {inner}
           </Link>
         ) : (
-          <div key={i} className="py-4 border-b border-cream-ghost group">
+          <div key={i} onClick={() => onPing?.(i)} className="py-4 border-b border-cream-ghost cursor-pointer group">
             {inner}
           </div>
         );

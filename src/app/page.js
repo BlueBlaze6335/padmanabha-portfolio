@@ -21,7 +21,6 @@ const SECTIONS = [
   { id: 'signal',        freq: 130.81, sub: 'Make something' },
 ];
 
-const HARMONICS = [1, 1.25, 1.333, 1.5, 1.667, 1.875, 2];
 
 export default function HomePage() {
   const [idx, setIdx] = useState(0);
@@ -70,11 +69,11 @@ export default function HomePage() {
     }, 200);
   }, [idx, fading, audioOn, router]);
 
-  // Ping for interactive elements
+  // Ping for interactive elements — chromatic climb from the section's note.
+  // i=0 → root, i=1 → +1 semitone, etc. 2^(1/12) per step.
   const handlePing = useCallback((i) => {
     if (!audioOn) return;
-    const h = HARMONICS[i % HARMONICS.length];
-    playPing(sec.freq * h, 0.35);
+    playPing(sec.freq * Math.pow(2, i / 12), 0.35);
   }, [audioOn, sec.freq]);
 
   // Swipe handlers
@@ -157,9 +156,9 @@ export default function HomePage() {
       case 'forge': return <Forge onPing={handlePing} />;
       case 'transmissions': return <Transmissions onPing={handlePing} />;
       case 'resonance': return <Resonance onPing={handlePing} />;
-      case 'archive': return <Archive />;
+      case 'archive': return <Archive onPing={handlePing} />;
       case 'frequencies': return <Frequencies onPing={handlePing} />;
-      case 'wavelength': return <Wavelength />;
+      case 'wavelength': return <Wavelength onPing={handlePing} />;
       default: return null;
     }
   };
