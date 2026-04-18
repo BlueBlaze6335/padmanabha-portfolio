@@ -2,12 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import SacredSymbol from '@/components/SacredSymbols';
 import {
   resumeAudio, getAudioContext, playDrumHit, initDrumBuffers,
   playSynthNote, playBassNote, togglePad, isPadActive,
-  updateDrone, Scheduler, SYNTH_PROFILES, BASS_PROFILES,
+  startDrone, updateDrone, stopDrone, isDroneActive,
+  Scheduler, SYNTH_PROFILES, BASS_PROFILES,
 } from '@/lib/audio/engine';
+
+const STUDIO_FREQ = 130.81; // C3 — matches section 8 in the main journey
+const DOTS = 8; // 7 journey sections + studio
 
 const STEPS = 16;
 const DR = ['crash', 'hh', 'snare', 'kick'];
@@ -44,16 +49,82 @@ export default function StudioPage() {
   const [volumes, setVolumes] = useState({ dr: 80, sy: 70, ba: 75, pd: 40 });
   const [name, setName] = useState('');
   const [saved, setSaved] = useState(false);
+  const [audioOn, setAudioOn] = useState(false);
+  const [msgName, setMsgName] = useState('');
+  const [msgEmail, setMsgEmail] = useState('');
+  const [msgBody, setMsgBody] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgSent, setMsgSent] = useState(false);
+  const [msgError, setMsgError] = useState('');
 
+  const router = useRouter();
   const schedulerRef = useRef(null);
   const gridsRef = useRef({ drum: drumGrid, synth: synthGrid, bass: bassGrid });
   const volRef = useRef(volumes);
   const profileRef = useRef({ synth: synthProfile, bass: bassProfile });
+  const touchStart = useRef({ x: 0, y: 0 });
+  const waveRef = useRef(null);
+  const wavePhase = useRef(0);
+  const waveAnim = useRef(null);
 
   // Keep refs in sync
   useEffect(() => { gridsRef.current = { drum: drumGrid, synth: synthGrid, bass: bassGrid }; }, [drumGrid, synthGrid, bassGrid]);
   useEffect(() => { volRef.current = volumes; }, [volumes]);
   useEffect(() => { profileRef.current = { synth: synthProfile, bass: bassProfile }; }, [synthProfile, bassProfile]);
+
+  // Reflect the journey's drone state. Landing here with the drone running
+  // means audio is "on"; the toggle lets the user kill it if they want to
+  // focus on their own composition.
+  useEffect(() => { setAudioOn(isDroneActive()); }, []);
+
+  // Swipe handlers
+  const onTouchStart = (e) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const onTouchEnd = (e) => {
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      if (dx > 0) router.push('/');          // right swipe → back to journey
+      else router.push('/gallery');          // left swipe → forward to gallery
+    }
+  };
+
+  const toggleAudio = () => {
+    if (audioOn) { stopDrone(); setAudioOn(false); }
+    else { resumeAudio(); startDrone(7); setAudioOn(true); }
+  };
+
+  // Waveform canvas (mirrors main journey's bottom wave)
+  useEffect(() => {
+    const cvs = waveRef.current;
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+    const draw = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = cvs.clientWidth;
+      const h = cvs.clientHeight;
+      if (cvs.width !== w * dpr) { cvs.width = w * dpr; cvs.height = h * dpr; ctx.scale(dpr, dpr); }
+      wavePhase.current += 0.02;
+      ctx.clearRect(0, 0, w, h);
+      const mid = h / 2;
+      const amp = audioOn ? h * 0.3 : h * 0.08;
+      const period = w / (STUDIO_FREQ * 0.055);
+      ctx.beginPath(); ctx.strokeStyle = '#d4ac54'; ctx.lineWidth = audioOn ? 1.3 : 0.6; ctx.globalAlpha = audioOn ? 0.4 : 0.08;
+      for (let x = 0; x < w; x++) {
+        const t = ((x / period) + wavePhase.current) % 1;
+        const saw = 2 * t - 1;
+        const env = Math.sin((x / w) * Math.PI);
+        const y = mid + saw * amp * env;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      waveAnim.current = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => cancelAnimationFrame(waveAnim.current);
+  }, [audioOn]);
 
   // Init scheduler once
   useEffect(() => {
@@ -133,6 +204,29 @@ export default function StudioPage() {
     setPadActive(active);
   };
 
+  const handleSendMessage = async () => {
+    if (msgSending) return;
+    if (!msgName.trim() || !msgBody.trim()) {
+      setMsgError('Name and message are required.');
+      return;
+    }
+    setMsgSending(true);
+    setMsgError('');
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: msgName, email: msgEmail, message: msgBody }),
+      });
+      if (!res.ok) throw new Error('Failed to send');
+      setMsgSent(true);
+    } catch (e) {
+      setMsgError("Couldn't send. Try again in a moment.");
+    } finally {
+      setMsgSending(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
     try {
@@ -207,21 +301,55 @@ export default function StudioPage() {
   };
 
   return (
-    <div className="min-h-screen px-3 py-4 max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex justify-center mb-2">
-        <SacredSymbol id="signal" className="w-16 h-16" />
-      </div>
-      <div className="text-center mb-4">
-        <h1 className="font-body text-xl text-cream">Send a Signal</h1>
-        <p className="font-mono text-[9px] text-cream-dim/40 tracking-[4px] uppercase mt-1">Design something. Then hit play.</p>
+    <div
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      className="min-h-screen relative select-none"
+    >
+      {/* Audio toggle — matches main journey */}
+      <button
+        onClick={toggleAudio}
+        className={`fixed top-3 right-3 z-50 font-mono text-[9px] tracking-wider uppercase px-3 py-1.5 rounded-full border transition-all ${
+          audioOn ? 'text-[var(--gold)] border-[var(--gold-dim)]' : 'text-cream-dim border-cream-ghost'
+        }`}
+      >
+        {audioOn ? '♪ On' : '♪ Off'}
+      </button>
+
+      {/* Left arrow → back to journey */}
+      <button onClick={() => router.push('/')} className="fixed left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
+        ‹
+      </button>
+      {/* Right arrow → gallery */}
+      <button onClick={() => router.push('/gallery')} className="fixed right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
+        ›
+      </button>
+
+      {/* Sacred symbol — journey size */}
+      <div className="flex justify-center pt-8 relative z-10">
+        <SacredSymbol id="signal" className="w-[130px] h-[130px]" />
       </div>
 
-      {/* Navigation back */}
-      <div className="flex justify-between items-center mb-3">
-        <Link href="/" className="font-mono text-[9px] text-cream-dim/30 tracking-wider hover:text-[var(--gold)] transition-colors">← Back</Link>
-        <Link href="/gallery" className="font-mono text-[9px] text-cream-dim/30 tracking-wider hover:text-[var(--gold)] transition-colors">Signal Archive →</Link>
+      {/* Dots nav — section 8 active. Any earlier dot routes home. */}
+      <div className="flex justify-center gap-2 mt-3 relative z-10">
+        {Array.from({ length: DOTS }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => { if (i !== 7) router.push('/'); }}
+            className={`h-2 rounded-full transition-all duration-300 ${
+              i === 7 ? 'w-6 bg-[var(--gold)]' : 'w-2 bg-cream-ghost'
+            }`}
+          />
+        ))}
       </div>
+
+      {/* Section title + subtitle */}
+      <h1 className="section-title text-center mt-4 relative z-10">Send a Signal</h1>
+      <p className="text-center mt-2 font-mono text-[9px] tracking-[5px] text-cream-dim uppercase relative z-10">
+        Make something
+      </p>
+
+      <div className="relative z-10 mt-6 pb-28 px-3 max-w-2xl mx-auto">
 
       {/* Transport */}
       <div className="flex items-center gap-2 mb-3 p-2 bg-surface rounded-lg border border-cream-ghost flex-wrap">
@@ -326,6 +454,38 @@ export default function StudioPage() {
         </div>
       )}
 
+      {/* Or just say hi — low-friction message form for visitors who
+          don't want to make music. Persists to KV at /api/messages. */}
+      <div className="mt-6 p-4 rounded-lg border border-cream-ghost bg-surface">
+        <p className="font-mono text-[9px] text-cream-dim/60 tracking-[4px] uppercase mb-1">Or just say hi</p>
+        <p className="font-body text-[12px] text-cream-dim/60 leading-[1.6] mb-3">
+          Not in the mood to jam? Send a note instead — a thought, a question, a reason you're here.
+        </p>
+        {!msgSent ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <input type="text" value={msgName} onChange={(e) => setMsgName(e.target.value)} placeholder="Name"
+                className="flex-1 min-w-[120px] bg-cream/5 border border-cream-ghost rounded-md px-3 py-1.5 text-cream font-body text-[12px] outline-none focus:border-[var(--gold-dim)]" />
+              <input type="email" value={msgEmail} onChange={(e) => setMsgEmail(e.target.value)} placeholder="Email (optional)"
+                className="flex-1 min-w-[140px] bg-cream/5 border border-cream-ghost rounded-md px-3 py-1.5 text-cream font-body text-[12px] outline-none focus:border-[var(--gold-dim)]" />
+            </div>
+            <textarea value={msgBody} onChange={(e) => setMsgBody(e.target.value)} placeholder="Your message"
+              rows={3}
+              className="w-full bg-cream/5 border border-cream-ghost rounded-md px-3 py-2 text-cream font-body text-[12px] outline-none focus:border-[var(--gold-dim)] resize-y" />
+            {msgError && <p className="font-mono text-[10px] text-red-300/70 tracking-wider">{msgError}</p>}
+            <button onClick={handleSendMessage} disabled={msgSending}
+              className="self-end font-mono text-[9px] tracking-wider uppercase px-4 py-1.5 rounded-md border border-[var(--gold-dim)] text-[var(--gold)] bg-[var(--gold-ghost)] hover:bg-[var(--gold)]/10 transition-all disabled:opacity-50">
+              {msgSending ? 'Sending…' : 'Send signal'}
+            </button>
+          </div>
+        ) : (
+          <div className="p-3 rounded-md border border-[var(--gold-dim)] bg-[var(--gold-ghost)] text-center">
+            <p className="font-body text-[13px] text-[var(--gold)]">Signal received.</p>
+            <p className="font-body text-[11px] text-cream-dim mt-1">Thanks, {msgName}. I'll read it.</p>
+          </div>
+        )}
+      </div>
+
       {/* Social links */}
       <div className="flex justify-center gap-5 mt-6 mb-4">
         {[
@@ -340,6 +500,20 @@ export default function StudioPage() {
           </a>
         ))}
       </div>
+
+      </div>
+
+      {/* Hint + link to gallery */}
+      <p className="fixed bottom-[82px] left-1/2 -translate-x-1/2 z-20 font-mono text-[9px] tracking-wider text-cream-dim/30">
+        8 / 9 · swipe or <Link href="/gallery" className="hover:text-[var(--gold)]">archive →</Link>
+      </p>
+
+      {/* Waveform */}
+      <canvas
+        ref={waveRef}
+        className="fixed bottom-0 left-0 right-0 z-5 pointer-events-none"
+        style={{ width: '100%', height: 70 }}
+      />
     </div>
   );
 }

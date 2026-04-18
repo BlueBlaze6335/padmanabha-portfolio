@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import SacredSymbol from '@/components/SacredSymbols';
 import { resumeAudio, getAudioContext, playDrumHit, initDrumBuffers, playSynthNote, playBassNote, Scheduler } from '@/lib/audio/engine';
+
+const DOTS = 9; // 7 journey sections + studio + gallery
 
 const SYNTH_FREQ = {C3:130.81,'C#3':138.59,D3:146.83,'D#3':155.56,E3:164.81,F3:174.61,'F#3':185,G3:196,'G#3':207.65,A3:220,'A#3':233.08,B3:246.94,C4:261.63};
 const BASS_FREQ = {C2:65.41,'C#2':69.3,D2:73.42,'D#2':77.78,E2:82.41,F2:87.31,'F#2':92.5,G2:98,'G#2':103.83,A2:110,'A#2':116.54,B2:123.47,C3:130.81};
@@ -46,6 +50,18 @@ export default function GalleryPage() {
   const [compositions, setCompositions] = useState([]);
   const [playingId, setPlayingId] = useState(null);
   const schedulerRef = useRef(null);
+  const router = useRouter();
+  const touchStart = useRef({ x: 0, y: 0 });
+
+  const onTouchStart = (e) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const onTouchEnd = (e) => {
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    // Right swipe → studio (back). No forward — gallery is the last section.
+    if (Math.abs(dx) > Math.abs(dy) && dx > 50) router.push('/studio');
+  };
 
   useEffect(() => {
     fetch('/api/compositions').then(r => r.json()).then(setCompositions).catch(() => {
@@ -82,19 +98,45 @@ export default function GalleryPage() {
   }, []);
 
   return (
-    <div className="min-h-screen px-4 py-8 max-w-xl mx-auto">
-      <div className="text-center mb-6">
-        <h1 className="font-body text-[28px] text-cream font-normal tracking-[-1px]">Signal Archive</h1>
-        <p className="font-mono text-[9px] text-cream-dim/40 tracking-[4px] uppercase mt-1">What visitors left behind</p>
-        <span className="inline-block font-mono text-[9px] text-cream-dim/30 tracking-wider uppercase border border-cream-ghost rounded-full px-3 py-1 mt-3">
+    <div
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      className="min-h-screen relative select-none"
+    >
+      {/* Left arrow → studio */}
+      <button onClick={() => router.push('/studio')} className="fixed left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
+        ‹
+      </button>
+
+      {/* Sacred symbol — journey size */}
+      <div className="flex justify-center pt-8 relative z-10">
+        <SacredSymbol id="signal" className="w-[130px] h-[130px]" />
+      </div>
+
+      {/* Dots — gallery is section 9 (last) */}
+      <div className="flex justify-center gap-2 mt-3 relative z-10">
+        {Array.from({ length: DOTS }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => { if (i === 7) router.push('/studio'); else if (i < 7) router.push('/'); }}
+            className={`h-2 rounded-full transition-all duration-300 ${
+              i === 8 ? 'w-6 bg-[var(--gold)]' : 'w-2 bg-cream-ghost'
+            }`}
+          />
+        ))}
+      </div>
+
+      <h1 className="section-title text-center mt-4 relative z-10">Signal Archive</h1>
+      <p className="text-center mt-2 font-mono text-[9px] tracking-[5px] text-cream-dim uppercase relative z-10">
+        What visitors left behind
+      </p>
+      <div className="flex justify-center mt-3 relative z-10">
+        <span className="font-mono text-[9px] text-cream-dim/30 tracking-wider uppercase border border-cream-ghost rounded-full px-3 py-1">
           No background audio — listen to them
         </span>
       </div>
 
-      <div className="flex justify-between mb-6">
-        <Link href="/" className="font-mono text-[9px] text-cream-dim/30 tracking-wider hover:text-[var(--gold)] transition-colors">← Journey</Link>
-        <Link href="/studio" className="font-mono text-[9px] text-cream-dim/30 tracking-wider hover:text-[var(--gold)] transition-colors">Make your own →</Link>
-      </div>
+      <div className="relative z-10 mt-6 pb-28 px-4 max-w-xl mx-auto">
 
       {compositions.length === 0 ? (
         <p className="text-center font-body text-cream-dim py-12">No signals yet. Be the first.</p>
@@ -140,6 +182,11 @@ export default function GalleryPage() {
 
       <p className="text-center font-mono text-[9px] text-cream-dim/20 tracking-wider mt-8">
         {compositions.length} SIGNAL{compositions.length !== 1 ? 'S' : ''} ARCHIVED
+      </p>
+      </div>
+
+      <p className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 font-mono text-[9px] tracking-wider text-cream-dim/30">
+        9 / 9 · <Link href="/" className="hover:text-[var(--gold)]">← journey</Link>
       </p>
     </div>
   );

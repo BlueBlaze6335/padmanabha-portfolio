@@ -17,16 +17,33 @@ let _master = null;
 export function getAudioContext() {
   if (_ctx) return _ctx;
   _ctx = new (window.AudioContext || window.webkitAudioContext)();
+  // Chain: sources → master(hot) → compressor(soft-knee, moderate ratio)
+  // → makeup gain (+6dB) → brickwall limiter (-1dB ceiling) → destination.
+  // The compressor+makeup raises perceived loudness on phone speakers;
+  // the brickwall catches any remaining peak so we never clip at DAC.
   _master = _ctx.createGain();
-  _master.gain.value = 1.4;
-  // Brickwall limiter so the louder master can't clip phone speakers.
+  _master.gain.value = 2.5;
+
+  const comp = _ctx.createDynamicsCompressor();
+  comp.threshold.value = -18;
+  comp.knee.value = 6;
+  comp.ratio.value = 8;
+  comp.attack.value = 0.003;
+  comp.release.value = 0.25;
+
+  const makeup = _ctx.createGain();
+  makeup.gain.value = 2.0;
+
   const limiter = _ctx.createDynamicsCompressor();
-  limiter.threshold.value = -3;
+  limiter.threshold.value = -1;
   limiter.knee.value = 0;
   limiter.ratio.value = 20;
-  limiter.attack.value = 0.003;
-  limiter.release.value = 0.25;
-  _master.connect(limiter);
+  limiter.attack.value = 0.001;
+  limiter.release.value = 0.15;
+
+  _master.connect(comp);
+  comp.connect(makeup);
+  makeup.connect(limiter);
   limiter.connect(_ctx.destination);
   return _ctx;
 }
@@ -413,6 +430,8 @@ export function updateDrone(sectionIndex) {
   });
   _droneGain.gain.linearRampToValueAtTime(vol * 0.06, now + CROSSFADE_TIME);
 }
+
+export function isDroneActive() { return _droneActive; }
 
 export function stopDrone() {
   if (!_droneActive || !_droneOscs) return;
