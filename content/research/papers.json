@@ -1,0 +1,49 @@
+{
+  "myPapers": [
+    {
+      "title": "Voice Conversion Using Feature Specific Loss Function Based Self-Attentive GAN",
+      "authors": "S. Dhar, P. Banerjee, N. D. Jana, S. Das",
+      "venue": "ICASSP 2023",
+      "location": "Rhodes, Greece",
+      "year": 2023,
+      "doi": "https://doi.org/10.1109/ICASSP49357.2023.10095069",
+      "code": "https://github.com/BlueBlaze6335"
+    },
+    {
+      "title": "FID-RPRGAN-VC: Fréchet Inception Distance Loss based Region-wise Position Normalized Relativistic GAN for Non-Parallel Voice Conversion",
+      "authors": "S. Dhar, M. T. Akhter, P. Banerjee, N. D. Jana, S. Das",
+      "venue": "APSIPA ASC 2023",
+      "location": "Taipei, Taiwan",
+      "year": 2023,
+      "doi": "https://doi.org/10.1109/APSIPAASC58517.2023.10317438",
+      "code": "https://github.com/BlueBlaze6335"
+    },
+    {
+      "title": "Region Normalized Capsule Network Based GAN for Non-Parallel Voice Conversion",
+      "authors": "M. T. Akhter, P. Banerjee, S. Dhar, S. Ghosh, N. D. Jana",
+      "venue": "SPECOM 2023",
+      "year": 2023,
+      "doi": "https://doi.org/10.1007/978-3-031-48309-7-20",
+      "code": "https://github.com/BlueBlaze6335"
+    },
+    {
+      "title": "An Analysis of Performance Evaluation Metrics for Voice Conversion Models",
+      "authors": "M. T. Akhter, P. Banerjee, S. Dhar, N. D. Jana",
+      "venue": "INDICON 2022",
+      "location": "Kochi, India",
+      "year": 2022,
+      "doi": "https://doi.org/10.1109/INDICON56171.2022.10040000",
+      "code": "https://github.com/BlueBlaze6335"
+    }
+  ],
+  "recommended": [
+    {
+      "title": "Add your recommended papers here",
+      "authors": "Author names",
+      "field": "Field",
+      "year": 2024,
+      "why": "One or two sentences on why this paper changed how you think.",
+      "link": "#"
+    }
+  ]
+}
