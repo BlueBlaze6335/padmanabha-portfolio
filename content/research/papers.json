@@ -36,14 +36,5 @@
       "code": "https://github.com/BlueBlaze6335"
     }
   ],
-  "recommended": [
-    {
-      "title": "Add your recommended papers here",
-      "authors": "Author names",
-      "field": "Field",
-      "year": 2024,
-      "why": "One or two sentences on why this paper changed how you think.",
-      "link": "#"
-    }
-  ]
+  "recommended": []
 }

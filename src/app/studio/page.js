@@ -90,8 +90,11 @@ export default function StudioPage() {
     const dx = e.changedTouches[0].clientX - touchStart.current.x;
     const dy = e.changedTouches[0].clientY - touchStart.current.y;
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
-      if (dx > 0) router.push('/');          // right swipe → back to journey
-      else router.push('/gallery');          // left swipe → forward to gallery
+      // Back to journey = land on Wavelength (section 7, idx 6), the
+      // section immediately before Signal — NOT Origin. The query param
+      // tells page.js where to start.
+      if (dx > 0) router.push('/?s=6');      // swipe-from-left / back
+      else router.push('/gallery');          // swipe-from-right / forward
     }
   };
 
@@ -328,8 +331,9 @@ export default function StudioPage() {
         {audioOn ? '♪ On' : '♪ Off'}
       </button>
 
-      {/* Left arrow → back to journey */}
-      <button onClick={() => router.push('/')} className="fixed left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
+      {/* Left arrow → back to Wavelength (the section you'd naturally
+          come from on the journey). */}
+      <button onClick={() => router.push('/?s=6')} className="fixed left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
         ‹
       </button>
       {/* Right arrow → gallery */}

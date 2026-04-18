@@ -70,10 +70,12 @@ export default function HomePage() {
   }, [idx, fading, audioOn, router]);
 
   // Ping for interactive elements — chromatic climb from the section's note.
-  // i=0 → root, i=1 → +1 semitone, etc. 2^(1/12) per step.
+  // i=0 → root, i=1 → +1 semitone, etc. 2^(1/12) per step. playPing
+  // itself transposes the tone up into phone-speaker range; the frequency
+  // math here still fixes the pings harmonically to the section's drone.
   const handlePing = useCallback((i) => {
     if (!audioOn) return;
-    playPing(sec.freq * Math.pow(2, i / 12), 0.35);
+    playPing(sec.freq * Math.pow(2, i / 12), 1.0);
   }, [audioOn, sec.freq]);
 
   // Swipe handlers
@@ -88,9 +90,17 @@ export default function HomePage() {
     }
   };
 
-  // Reflect the shared drone state on mount — if the visitor is returning
-  // from /studio with audio running, the toggle should read "On".
-  useEffect(() => { setAudioOn(isDroneActive()); }, []);
+  // On mount: honor `?s=N` (e.g. back-from-/studio lands on Wavelength)
+  // and sync the UI with the actual drone state so the toggle is honest.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('s');
+    const n = Number.parseInt(raw ?? '', 10);
+    if (Number.isFinite(n) && n >= 0 && n < SECTIONS.length && n !== 0) {
+      setIdx(n);
+      if (isDroneActive()) updateDrone(n);
+    }
+    setAudioOn(isDroneActive());
+  }, []);
 
   // Keyboard
   useEffect(() => {

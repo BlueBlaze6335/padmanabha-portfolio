@@ -191,7 +191,7 @@ export default function GalleryPage() {
       </div>
 
       <p className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 font-mono text-[9px] tracking-wider text-cream-dim/30">
-        9 / 9 · <Link href="/" className="hover:text-[var(--gold)]">← journey</Link>
+        9 / 9 · <Link href="/?s=0" className="hover:text-[var(--gold)]">← journey</Link>
       </p>
     </div>
   );

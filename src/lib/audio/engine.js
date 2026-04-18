@@ -533,18 +533,25 @@ export function playTransitionNote(freq) {
 }
 
 // ─── Interaction Ping (for button clicks in sections) ───────────
-// Percussive click for interactive elements. Short (~250ms), bright,
-// audible on phone speakers. Two triangles an octave apart with a fast
-// 3ms attack make the transient feel like a "tap", not a "wash".
-export function playPing(freq, velocity = 0.6) {
+// Percussive click for interactive elements. The input `freq` is the
+// section's parent note (C2-C3 = 65-130 Hz) — too low for phone
+// speakers which roll off below ~200 Hz. We transpose the fundamental
+// up 2 octaves so the ping actually lives in the 260-520 Hz band where
+// phone drivers respond, while still harmonically belonging to the
+// section it's rooted in.
+//
+// Shape: two triangles + a tiny filtered-noise transient for the
+// "click" character on top of the tonal body. 3 ms attack, 200 ms tail.
+export function playPing(freq, velocity = 1.0) {
   const ctx = resumeAudio();
   const now = ctx.currentTime;
   const master = getMaster();
+  const f = freq * 4; // up 2 octaves
 
-  const mkVoice = (f, peak, tail) => {
+  const voice = (hz, peak, tail) => {
     const o = ctx.createOscillator();
     o.type = 'triangle';
-    o.frequency.setValueAtTime(f, now);
+    o.frequency.setValueAtTime(hz, now);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, now);
     g.gain.linearRampToValueAtTime(peak * velocity, now + 0.003);
@@ -555,6 +562,22 @@ export function playPing(freq, velocity = 0.6) {
     o.stop(now + tail + 0.02);
   };
 
-  mkVoice(freq, 0.4, 0.25);       // fundamental
-  mkVoice(freq * 2, 0.18, 0.14);  // octave, shorter — adds "click"
+  voice(f,     0.9, 0.22); // fundamental — loud
+  voice(f * 2, 0.4, 0.12); // octave — bright transient
+  voice(f * 3, 0.15, 0.08); // fifth above octave — glint
+
+  // Tiny filtered-noise burst for the "tap" attack
+  const bufLen = Math.floor(ctx.sampleRate * 0.01); // 10 ms
+  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = Math.min(3000, f * 4);
+  const ng = ctx.createGain();
+  ng.gain.value = 0.3 * velocity;
+  src.connect(hp); hp.connect(ng); ng.connect(master);
+  src.start(now);
 }

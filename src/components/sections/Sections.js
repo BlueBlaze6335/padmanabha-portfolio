@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import papersData from '../../../content/research/papers.json';
+import playlistsData from '../../../content/playlists/playlists.json';
+import galleryItems from '../../../content/gallery/items.json';
 
 // ─── Section 1: Origin ──────────────────────────────────────────
 export function Origin() {
@@ -114,14 +117,19 @@ export function Transmissions({ onPing }) {
 }
 
 // ─── Section 4: Resonance ───────────────────────────────────────
-const PAPERS = [
-  { title: 'Voice Conversion Using Feature Specific Loss Function Based Self-Attentive GAN', venue: 'ICASSP 2023 · Rhodes, Greece', color: '#d4ac54', doi: 'https://doi.org/10.1109/ICASSP49357.2023.10095069' },
-  { title: 'FID-RPRGAN-VC: Fréchet Inception Distance Loss based Region-wise Position Normalized Relativistic GAN for Non-Parallel Voice Conversion', venue: 'APSIPA ASC 2023 · Taipei, Taiwan', color: '#5DCAA5', doi: 'https://doi.org/10.1109/APSIPAASC58517.2023.10317438' },
-  { title: 'Region Normalized Capsule Network Based GAN for Non-Parallel Voice Conversion', venue: 'SPECOM 2023', color: '#ED93B1', doi: 'https://doi.org/10.1007/978-3-031-48309-7-20' },
-  { title: 'An Analysis of Performance Evaluation Metrics for Voice Conversion Models', venue: 'INDICON 2022 · Kochi, India', color: '#8a8474', doi: 'https://doi.org/10.1109/INDICON56171.2022.10040000' },
-];
+// Paper venue hues ladder through the gold family, not random hues, so
+// the section reads with the rest of the portfolio.
+const PAPER_HUES = ['#d4ac54', '#c9a049', '#b8933f', '#8f6a24'];
+
+// Filter out the seed "Add your recommended papers here" placeholder so
+// editing content/research/papers.json with real entries just works,
+// and the section degrades gracefully to an empty state otherwise.
+const recommendedPapers = (papersData.recommended || []).filter(
+  (p) => p && p.title && !/add your recommended papers/i.test(p.title)
+);
 
 export function Resonance({ onPing }) {
+  const authored = papersData.myPapers || [];
   return (
     <div className="max-w-[520px] mx-auto px-4">
       <h2 className="section-title mb-1">Resonance</h2>
@@ -129,84 +137,166 @@ export function Resonance({ onPing }) {
       <p className="font-body text-[14px] text-cream-dim leading-[1.8] mb-4">
         Papers in voice conversion and speech processing. All with code.
       </p>
+
       <p className="mono-label text-[var(--gold)]/40 mb-3">Publications</p>
-      {PAPERS.map((p, i) => (
-        <a key={i} href={p.doi} target="_blank" rel="noopener noreferrer" onClick={() => onPing?.(i)}
-          className="block py-3 border-b border-cream-ghost hover:pl-2 transition-all group">
-          <div className="font-body text-[13px] text-cream-soft leading-[1.55] group-hover:text-cream transition-colors">{p.title}</div>
-          <span className="font-mono text-[9px] tracking-wider mt-1 inline-block" style={{ color: `${p.color}60` }}>{p.venue}</span>
-        </a>
-      ))}
+      {authored.map((p, i) => {
+        const hue = PAPER_HUES[i % PAPER_HUES.length];
+        const venue = [p.venue, p.location].filter(Boolean).join(' · ');
+        return (
+          <a key={i} href={p.doi || '#'} target="_blank" rel="noopener noreferrer" onClick={() => onPing?.(i)}
+            className="block py-3 border-b border-cream-ghost hover:pl-2 transition-all group">
+            <div className="font-body text-[13px] text-cream-soft leading-[1.55] group-hover:text-cream transition-colors">{p.title}</div>
+            {p.authors && (
+              <div className="font-mono text-[9px] text-cream-dim/45 tracking-wider mt-1">{p.authors}</div>
+            )}
+            <span className="font-mono text-[9px] tracking-wider mt-1 inline-block" style={{ color: `${hue}99` }}>{venue}</span>
+          </a>
+        );
+      })}
+
       <div className="mt-7">
-        <p className="mono-label text-[#7c6adb]/50 mb-2">Reading list</p>
-        <div className="p-4 rounded-lg border border-[#7F77DD]/10 bg-[#7F77DD]/[0.02]">
-          <p className="font-body text-[13px] text-cream-dim leading-[1.7]">
-            Papers that shaped my research — each with a note on why it matters. Updated when something hits.
-          </p>
-        </div>
+        <p className="mono-label text-[var(--gold)]/40 mb-3">Reading list</p>
+        {recommendedPapers.length > 0 ? (
+          <div className="flex flex-col gap-0">
+            {recommendedPapers.map((p, i) => (
+              <a key={i} href={p.link || '#'} target="_blank" rel="noopener noreferrer" onClick={() => onPing?.(authored.length + i)}
+                className="block py-3 border-b border-cream-ghost hover:pl-2 transition-all group">
+                <div className="font-body text-[13px] text-cream-soft leading-[1.55] group-hover:text-cream transition-colors">{p.title}</div>
+                {p.authors && (
+                  <div className="font-mono text-[9px] text-cream-dim/45 tracking-wider mt-1">{p.authors}{p.year ? ` · ${p.year}` : ''}{p.field ? ` · ${p.field}` : ''}</div>
+                )}
+                {p.why && (
+                  <p className="font-body text-[12px] text-cream-dim/70 italic leading-[1.55] mt-1.5">"{p.why}"</p>
+                )}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 rounded-lg border border-cream-ghost bg-surface">
+            <p className="font-body text-[13px] text-cream-dim/70 leading-[1.7]">
+              Papers that shaped my thinking — curated slowly, linked out when something hits. Coming soon.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // ─── Section 5: Archive ─────────────────────────────────────────
-const FILTERS = ['All', 'Painting', 'Photography', 'Digital'];
+const CATEGORY_FILTERS = ['All', 'painting', 'photography', 'digital'];
+
+// Treat single-placeholder items.json as empty.
+const realGalleryItems = (galleryItems || []).filter(
+  (it) => it && it.src && !/placeholder\.jpg$/i.test(it.src) && !/^your/i.test(it.title || '')
+);
 
 export function Archive({ onPing }) {
   const [filter, setFilter] = useState('All');
+  const visible = filter === 'All'
+    ? realGalleryItems
+    : realGalleryItems.filter((it) => (it.category || '').toLowerCase() === filter);
+  const heights = [180, 240, 160, 220, 170, 200];
+
   return (
     <div className="max-w-[560px] mx-auto px-4">
       <h2 className="section-title mb-1">Archive</h2>
       <p className="mono-label text-cream-dim/40 mb-5">Visual · Creative · Memory</p>
       <p className="font-body text-[14px] text-cream-dim leading-[1.8] mb-4">Paintings, photographs, and experiments. Click to expand.</p>
       <div className="flex gap-1.5 mb-4 flex-wrap">
-        {FILTERS.map(f => (
+        {CATEGORY_FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)} className={`font-mono text-[9px] tracking-wider uppercase px-3 py-1 rounded-full border transition-all ${filter === f ? 'text-[var(--gold)] border-[var(--gold-dim)] bg-[var(--gold-ghost)]' : 'text-cream-dim/40 border-cream-ghost hover:text-cream-dim'}`}>{f}</button>
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-1.5">
-        {[180,240,160,220,170,200].map((h,i) => (
-          <div key={i} onClick={() => onPing?.(i)} className="rounded-md border border-cream-ghost cursor-pointer hover:border-[var(--gold-dim)] hover:scale-[1.02] transition-all overflow-hidden relative group" style={{ height: h, background: `linear-gradient(${120+i*35}deg, rgba(58,45,126,0.15), rgba(212,172,84,0.05))` }}>
-            <div className="absolute inset-0 bg-gradient-to-t from-[#07070dcc] to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-              <div>
-                <p className="font-body text-[12px] text-cream">Untitled {['I','II','III','IV','V','VI'][i]}</p>
-                <p className="font-mono text-[8px] text-[var(--gold)]/50 mt-0.5">Your image here</p>
+      {visible.length > 0 ? (
+        <div className="grid grid-cols-3 gap-1.5">
+          {visible.map((it, i) => (
+            <a
+              key={it.id || i}
+              href={it.src}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => onPing?.(i)}
+              className="rounded-md border border-cream-ghost cursor-pointer hover:border-[var(--gold-dim)] hover:scale-[1.02] transition-all overflow-hidden relative group block"
+              style={{ height: heights[i % heights.length], backgroundImage: `url(${it.src})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-[#07070dcc] to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                <div>
+                  <p className="font-body text-[12px] text-cream">{it.title}</p>
+                  <p className="font-mono text-[8px] text-[var(--gold)]/60 mt-0.5">{[it.medium, it.year].filter(Boolean).join(' · ')}</p>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : (
+        // Empty state mirrors the grid's visual rhythm so the section
+        // doesn't collapse when items.json hasn't been populated yet.
+        <div className="grid grid-cols-3 gap-1.5">
+          {heights.map((h, i) => (
+            <div key={i} onClick={() => onPing?.(i)} className="rounded-md border border-cream-ghost/60 cursor-pointer hover:border-[var(--gold-dim)] transition-all overflow-hidden relative group" style={{ height: h, background: `linear-gradient(${120+i*35}deg, rgba(58,45,126,0.08), rgba(212,172,84,0.04))` }}>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="font-mono text-[8px] text-[var(--gold)]/30 tracking-[3px] uppercase">Soon</span>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+      {realGalleryItems.length === 0 && (
+        <p className="mt-3 font-mono text-[9px] text-cream-dim/30 tracking-wider uppercase text-center">
+          Images being curated
+        </p>
+      )}
     </div>
   );
 }
 
 // ─── Section 6: Frequencies ─────────────────────────────────────
-const PLAYLISTS = [
-  { name: 'The Prog Spiral', genre: 'Progressive Rock', artists: 'Tool, Opeth, King Crimson, Porcupine Tree, Dream Theater, Steven Wilson', color: '#d4ac54' },
-  { name: 'Raga to Fusion', genre: 'Indian Classical / Fusion', artists: 'Pt. Ravi Shankar, Shakti, Indian Ocean, Zakir Hussain, John McLaughlin', color: '#ED93B1' },
-  { name: "Drummer's Bible", genre: 'Various', artists: 'Bonham, Danny Carey, Gavin Harrison, Mike Portnoy, Eloy Casagrande, Mario Duplantier', color: '#D85A30' },
-  { name: 'Late Night Jazz', genre: 'Jazz', artists: 'John Coltrane, Miles Davis, Thelonious Monk, Duke Ellington, Buddy Rich', color: '#5DCAA5' },
-  { name: 'Bangla Roots', genre: 'Bengali', artists: 'Mohiner Ghoraguli, Warfaze, Fossils, Cactus, Miles, Ashes', color: '#EF9F27' },
-  { name: 'Mosh Pit Therapy', genre: 'Metal', artists: 'Gojira, Meshuggah, Lamb of God, Sepultura, Pantera, Slipknot', color: '#E24B4A' },
-  { name: 'Guitar Gods', genre: 'Various', artists: 'Jeff Beck, Santana, Joe Satriani, Steve Vai, SRV, Eric Clapton, Slash', color: '#7F77DD' },
-  { name: 'Qawwali & Ghazal', genre: 'Devotional', artists: 'Nusrat Fateh Ali Khan, Ghulam Ali, Bhimsen Joshi, Debabrata Biswas', color: '#c9c2ae' },
-];
+// Cycle a gold-family ladder so playlist accents stay on-palette.
+const PLAYLIST_HUES = ['#d4ac54', '#c9a049', '#b8933f', '#a07e2e', '#8f6a24', '#c9c2ae', '#ede8da', '#8a8474'];
 
 export function Frequencies({ onPing }) {
+  const playlists = playlistsData || [];
   return (
     <div className="max-w-[520px] mx-auto px-4">
       <h2 className="section-title mb-1">Frequencies</h2>
       <p className="mono-label text-cream-dim/40 mb-5">What I listen to</p>
       <p className="font-body text-[14px] text-cream-dim leading-[1.8] mb-4">The fuel. What's playing while the models train.</p>
       <div className="flex flex-col gap-1.5">
-        {PLAYLISTS.map((p, i) => (
-          <button key={i} onClick={() => onPing?.(i)} className="relative text-left rounded-lg border border-cream-ghost px-4 py-3 overflow-hidden transition-all hover:border-[var(--gold-dim)] group">
-            <div className="absolute top-0 left-0 right-0 h-[2px] opacity-30 group-hover:opacity-70 transition-opacity" style={{ background: p.color }} />
-            <div className="font-body text-[16px] text-cream">{p.name}</div>
-            <div className="font-mono text-[9px] tracking-wider uppercase mt-0.5" style={{ color: `${p.color}60` }}>{p.genre}</div>
-            <div className="font-body text-[12px] text-cream-dim/45 mt-1 leading-[1.5]">{p.artists}</div>
-          </button>
-        ))}
+        {playlists.map((p, i) => {
+          const hue = PLAYLIST_HUES[i % PLAYLIST_HUES.length];
+          const hasLink = p.link && p.link !== '#';
+          const handleClick = (e) => {
+            onPing?.(i);
+            // If no real link, suppress the <a> default so we don't nav to "#"
+            if (!hasLink) e.preventDefault();
+          };
+          const inner = (
+            <>
+              <div className="absolute top-0 left-0 right-0 h-[2px] opacity-30 group-hover:opacity-70 transition-opacity" style={{ background: hue }} />
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="font-body text-[16px] text-cream">{p.title || p.name}</div>
+                {hasLink && (
+                  <span className="font-mono text-[8px] tracking-wider uppercase text-[var(--gold)]/50 shrink-0">Open ↗</span>
+                )}
+              </div>
+              <div className="font-mono text-[9px] tracking-wider uppercase mt-0.5" style={{ color: `${hue}99` }}>{p.genre}</div>
+              <div className="font-body text-[12px] text-cream-dim/45 mt-1 leading-[1.5]">{p.artists}</div>
+            </>
+          );
+          return (
+            <a
+              key={i}
+              href={hasLink ? p.link : '#'}
+              target={hasLink ? '_blank' : undefined}
+              rel={hasLink ? 'noopener noreferrer' : undefined}
+              onClick={handleClick}
+              className="relative block rounded-lg border border-cream-ghost px-4 py-3 overflow-hidden transition-all hover:border-[var(--gold-dim)] group"
+            >
+              {inner}
+            </a>
+          );
+        })}
       </div>
     </div>
   );
