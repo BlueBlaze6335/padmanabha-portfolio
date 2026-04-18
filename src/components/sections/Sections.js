@@ -13,9 +13,14 @@ export function Origin() {
       <h1 className="font-body text-[clamp(48px,9vw,80px)] font-normal text-cream tracking-[-2px] leading-none mb-2">
         Padmanabha
       </h1>
-      <p className="font-body text-[clamp(14px,2.5vw,18px)] text-cream-dim/50 italic mb-7">
+      <p className="font-body text-[clamp(14px,2.5vw,18px)] text-cream-dim/50 italic mb-3">
         Signal in the noise
       </p>
+      <div className="inline-flex items-center gap-2 mb-7 font-mono text-[9px] tracking-[4px] uppercase text-[var(--gold)]/60">
+        <span className="h-px w-6 bg-[var(--gold)]/30" />
+        <span>High SNR</span>
+        <span className="h-px w-6 bg-[var(--gold)]/30" />
+      </div>
       <p className="font-body text-[15px] text-cream-soft leading-[1.9] mb-4 max-w-[460px] mx-auto">
         I build systems that perceive, understand, and generate — voice, video, language, music.
         When I'm not writing code, I'm behind a drum kit, mixing psytrance, painting, or building FPV drones.

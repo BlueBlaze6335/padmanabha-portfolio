@@ -42,14 +42,16 @@ body { background: var(--bg); color: var(--cream); font-family: Georgia, serif; 
 .prose-custom code { font-family: 'JetBrains Mono', monospace; font-size: 0.88em; background: rgba(212,172,84,0.08); padding: 0.15em 0.4em; border-radius: 3px; }
 .prose-custom blockquote { border-left: 2px solid var(--gold-dim); padding-left: 1em; font-style: italic; color: rgba(232,228,217,0.5); }
 
-/* Studio grid cells */
+/* Studio grid cells — black + gold family. Four voices differentiated
+   by value/saturation within a single palette, not by different hues,
+   so the DAW reads as one instrument with the rest of the portfolio. */
 .cell-off { background: rgba(237,232,218,0.02); border: 1px solid rgba(138,132,116,0.04); }
 .cell-off:hover { background: rgba(237,232,218,0.06); }
 .cell-beat { border-left-color: rgba(138,132,116,0.1); }
 .cell-head { background: rgba(237,232,218,0.12) !important; border-color: rgba(237,232,218,0.2) !important; }
-.cell-kick { background: #D85A30; border-color: rgba(216,90,48,0.5); }
-.cell-snare { background: #d4ac54; border-color: rgba(212,172,84,0.5); }
-.cell-hh { background: #5DCAA5; border-color: rgba(93,202,165,0.5); }
-.cell-crash { background: #ED93B1; border-color: rgba(237,147,177,0.5); }
-.cell-synth { background: #d4ac54; border-color: rgba(212,172,84,0.5); }
-.cell-bass { background: #5DCAA5; border-color: rgba(93,202,165,0.5); }
+.cell-kick  { background: #8f6a24; border-color: rgba(143,106,36,0.6); }      /* deep gold — body */
+.cell-snare { background: #d4ac54; border-color: rgba(212,172,84,0.6); }      /* gold — anchor */
+.cell-hh    { background: #ede8da; border-color: rgba(237,232,218,0.5); }     /* cream — transient */
+.cell-crash { background: rgba(212,172,84,0.55); border: 1px solid var(--gold); box-shadow: inset 0 0 0 1px rgba(237,232,218,0.2); } /* ringed gold */
+.cell-synth { background: #d4ac54; border-color: rgba(212,172,84,0.6); }
+.cell-bass  { background: #6b5a24; border-color: rgba(107,90,36,0.7); }       /* darker gold for low-end */

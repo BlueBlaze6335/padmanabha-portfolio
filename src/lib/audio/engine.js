@@ -14,6 +14,8 @@
 let _ctx = null;
 let _master = null;
 
+let _analyser = null;
+
 export function getAudioContext() {
   if (_ctx) return _ctx;
   _ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -41,11 +43,24 @@ export function getAudioContext() {
   limiter.attack.value = 0.001;
   limiter.release.value = 0.15;
 
+  // Analyser taps the signal post-makeup so the waveform/meters reflect
+  // what's actually audible (drone + pings + transient notes). Placed
+  // in parallel with the limiter so it doesn't affect playback.
+  _analyser = _ctx.createAnalyser();
+  _analyser.fftSize = 2048;
+  _analyser.smoothingTimeConstant = 0.85;
+
   _master.connect(comp);
   comp.connect(makeup);
   makeup.connect(limiter);
+  makeup.connect(_analyser);
   limiter.connect(_ctx.destination);
   return _ctx;
+}
+
+export function getAnalyser() {
+  if (!_analyser) getAudioContext();
+  return _analyser;
 }
 
 export function getMaster() {
@@ -518,6 +533,28 @@ export function playTransitionNote(freq) {
 }
 
 // ─── Interaction Ping (for button clicks in sections) ───────────
-export function playPing(freq, velocity = 0.4) {
-  playSynthNote(freq, getAudioContext().currentTime, velocity, 'warm');
+// Percussive click for interactive elements. Short (~250ms), bright,
+// audible on phone speakers. Two triangles an octave apart with a fast
+// 3ms attack make the transient feel like a "tap", not a "wash".
+export function playPing(freq, velocity = 0.6) {
+  const ctx = resumeAudio();
+  const now = ctx.currentTime;
+  const master = getMaster();
+
+  const mkVoice = (f, peak, tail) => {
+    const o = ctx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(f, now);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(peak * velocity, now + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.001, now + tail);
+    o.connect(g);
+    g.connect(master);
+    o.start(now);
+    o.stop(now + tail + 0.02);
+  };
+
+  mkVoice(freq, 0.4, 0.25);       // fundamental
+  mkVoice(freq * 2, 0.18, 0.14);  // octave, shorter — adds "click"
 }

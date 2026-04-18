@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SacredSymbol from '@/components/SacredSymbols';
 import {
-  resumeAudio, getAudioContext, playDrumHit, initDrumBuffers,
+  resumeAudio, getAudioContext, getAnalyser, playDrumHit, initDrumBuffers,
   playSynthNote, playBassNote, togglePad, isPadActive,
   startDrone, updateDrone, stopDrone, isDroneActive,
   Scheduler, SYNTH_PROFILES, BASS_PROFILES,
@@ -77,14 +77,19 @@ export default function StudioPage() {
   // focus on their own composition.
   useEffect(() => { setAudioOn(isDroneActive()); }, []);
 
-  // Swipe handlers
+  // Swipe handlers — ignore if the touch started on an interactive element
+  // (inputs, sliders, grid cells, buttons). Otherwise sliding a BPM knob or
+  // programming a drum pattern would trigger a nav.
   const onTouchStart = (e) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    const t = e.target;
+    const interactive = t.closest && t.closest('input, textarea, button, [role="slider"], .cell-off, .cell-head, .cell-step, [data-no-swipe]');
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, blocked: !!interactive };
   };
   const onTouchEnd = (e) => {
+    if (touchStart.current.blocked) return;
     const dx = e.changedTouches[0].clientX - touchStart.current.x;
     const dy = e.changedTouches[0].clientY - touchStart.current.y;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
       if (dx > 0) router.push('/');          // right swipe → back to journey
       else router.push('/gallery');          // left swipe → forward to gallery
     }
@@ -95,36 +100,42 @@ export default function StudioPage() {
     else { resumeAudio(); startDrone(7); setAudioOn(true); }
   };
 
-  // Waveform canvas (mirrors main journey's bottom wave)
+  // Waveform canvas — live analyser feed so the DAW's beats are visible
+  // in the wave while you're programming them.
   useEffect(() => {
     const cvs = waveRef.current;
     if (!cvs) return;
     const ctx = cvs.getContext('2d');
+    const analyser = getAnalyser();
+    const buf = new Uint8Array(analyser.fftSize);
     const draw = () => {
       const dpr = window.devicePixelRatio || 1;
       const w = cvs.clientWidth;
       const h = cvs.clientHeight;
       if (cvs.width !== w * dpr) { cvs.width = w * dpr; cvs.height = h * dpr; ctx.scale(dpr, dpr); }
-      wavePhase.current += 0.02;
       ctx.clearRect(0, 0, w, h);
       const mid = h / 2;
-      const amp = audioOn ? h * 0.3 : h * 0.08;
-      const period = w / (STUDIO_FREQ * 0.055);
-      ctx.beginPath(); ctx.strokeStyle = '#d4ac54'; ctx.lineWidth = audioOn ? 1.3 : 0.6; ctx.globalAlpha = audioOn ? 0.4 : 0.08;
+      analyser.getByteTimeDomainData(buf);
+      let peak = 0;
+      for (let i = 0; i < buf.length; i++) { const v = Math.abs(buf[i] - 128); if (v > peak) peak = v; }
+      const intensity = Math.min(1, peak / 60);
+      ctx.beginPath();
+      ctx.strokeStyle = '#d4ac54';
+      ctx.lineWidth = 1 + intensity * 1.5;
+      ctx.globalAlpha = 0.25 + intensity * 0.65;
+      const step = buf.length / w;
       for (let x = 0; x < w; x++) {
-        const t = ((x / period) + wavePhase.current) % 1;
-        const saw = 2 * t - 1;
+        const v = buf[Math.floor(x * step)] / 128 - 1;
         const env = Math.sin((x / w) * Math.PI);
-        const y = mid + saw * amp * env;
+        const y = mid + v * (h * 0.42) * env;
         x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      ctx.stroke(); ctx.globalAlpha = 1;
       waveAnim.current = requestAnimationFrame(draw);
     };
     draw();
     return () => cancelAnimationFrame(waveAnim.current);
-  }, [audioOn]);
+  }, []);
 
   // Init scheduler once
   useEffect(() => {
@@ -305,6 +316,7 @@ export default function StudioPage() {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       className="min-h-screen relative select-none"
+      style={{ touchAction: 'pan-y' }}
     >
       {/* Audio toggle — matches main journey */}
       <button
@@ -330,12 +342,13 @@ export default function StudioPage() {
         <SacredSymbol id="signal" className="w-[130px] h-[130px]" />
       </div>
 
-      {/* Dots nav — section 8 active. Any earlier dot routes home. */}
-      <div className="flex justify-center gap-2 mt-3 relative z-10">
+      {/* Dots — position indicator only. Nav is by swipe / arrows /
+          in-page links; tiny clickable dots on a scrollable surface were
+          a mis-tap hazard. */}
+      <div className="flex justify-center gap-2 mt-3 relative z-10" aria-hidden="true">
         {Array.from({ length: DOTS }, (_, i) => (
-          <button
+          <span
             key={i}
-            onClick={() => { if (i !== 7) router.push('/'); }}
             className={`h-2 rounded-full transition-all duration-300 ${
               i === 7 ? 'w-6 bg-[var(--gold)]' : 'w-2 bg-cream-ghost'
             }`}
@@ -366,9 +379,9 @@ export default function StudioPage() {
       {/* Tabs */}
       <div className="flex gap-0.5 mb-1.5">
         {[
-          { id: 'drums', label: 'DRUMS', color: '#D85A30' },
-          { id: 'synth', label: 'SYNTH', color: '#d4ac54' },
-          { id: 'bass', label: 'BASS', color: '#5DCAA5' },
+          { id: 'drums', label: 'DRUMS', color: '#8f6a24' }, // deep gold
+          { id: 'synth', label: 'SYNTH', color: '#d4ac54' }, // gold anchor
+          { id: 'bass',  label: 'BASS',  color: '#c9c2ae' }, // cream-soft
         ].map(t => (
           <button key={t.id} onClick={() => setCurTab(t.id)}
             className={`font-mono text-[10px] tracking-wider px-3 py-1.5 rounded-t border-b-0 transition-all ${curTab === t.id ? 'bg-surface border border-cream-ghost' : 'border border-transparent'}`}
@@ -397,7 +410,7 @@ export default function StudioPage() {
             <span className="font-mono text-[8px] text-cream-dim/35 tracking-wider uppercase mr-1">Sound</span>
             {Object.keys(BASS_PROFILES).map(p => (
               <button key={p} onClick={() => setBassProfile(p)}
-                className={`font-mono text-[9px] px-2.5 py-0.5 rounded-full border transition-all ${bassProfile === p ? 'text-[#5DCAA5] border-[#5DCAA580] bg-[#5DCAA508]' : 'text-cream-dim/50 border-cream-ghost'}`}>
+                className={`font-mono text-[9px] px-2.5 py-0.5 rounded-full border transition-all ${bassProfile === p ? 'text-[var(--gold)] border-[var(--gold-dim)] bg-[var(--gold-ghost)]' : 'text-cream-dim/50 border-cream-ghost'}`}>
                 {p.charAt(0).toUpperCase() + p.slice(1)}
               </button>
             ))}
@@ -417,7 +430,7 @@ export default function StudioPage() {
       {/* Bottom bar — pad + faders */}
       <div className="flex items-center gap-3 mt-3 p-2 bg-surface rounded-lg border border-cream-ghost flex-wrap">
         <button onClick={handlePad} className="flex items-center gap-1.5">
-          <div className={`w-2.5 h-2.5 rounded-full border transition-all ${padActive ? 'bg-[#7F77DD] border-[#7F77DD]' : 'border-cream-ghost'}`} />
+          <div className={`w-2.5 h-2.5 rounded-full border transition-all ${padActive ? 'bg-[var(--gold)] border-[var(--gold)] shadow-[0_0_8px_var(--gold-dim)]' : 'border-cream-ghost'}`} />
           <span className="font-mono text-[10px] text-cream-soft tracking-wider">PAD</span>
         </button>
         <div className="flex gap-2 ml-auto">

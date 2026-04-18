@@ -14,7 +14,7 @@ const DR = ['crash','hh','snare','kick'];
 const SYNTH_NOTES = ['C4','B3','A#3','A3','G#3','G3','F#3','F3','E3','D#3','D3','C#3','C3'];
 const BASS_NOTES = ['C3','B2','A#2','A2','G#2','G2','F#2','F2','E2','D#2','D2','C#2','C2'];
 
-const DOT_COLORS = { kick: '#D85A30', snare: '#d4ac54', hh: '#5DCAA5', crash: '#ED93B1' };
+const DOT_COLORS = { kick: '#8f6a24', snare: '#d4ac54', hh: '#ede8da', crash: 'rgba(212,172,84,0.7)' };
 
 function getUsedLayers(comp) {
   const layers = [];
@@ -54,13 +54,18 @@ export default function GalleryPage() {
   const touchStart = useRef({ x: 0, y: 0 });
 
   const onTouchStart = (e) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    const t = e.target;
+    const interactive = t.closest && t.closest('button, [data-no-swipe]');
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, blocked: !!interactive };
   };
   const onTouchEnd = (e) => {
+    if (touchStart.current.blocked) return;
     const dx = e.changedTouches[0].clientX - touchStart.current.x;
     const dy = e.changedTouches[0].clientY - touchStart.current.y;
-    // Right swipe → studio (back). No forward — gallery is the last section.
-    if (Math.abs(dx) > Math.abs(dy) && dx > 50) router.push('/studio');
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+      // Either direction goes back to /studio — gallery is the endpoint.
+      router.push('/studio');
+    }
   };
 
   useEffect(() => {
@@ -102,6 +107,7 @@ export default function GalleryPage() {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       className="min-h-screen relative select-none"
+      style={{ touchAction: 'pan-y' }}
     >
       {/* Left arrow → studio */}
       <button onClick={() => router.push('/studio')} className="fixed left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
@@ -113,12 +119,11 @@ export default function GalleryPage() {
         <SacredSymbol id="signal" className="w-[130px] h-[130px]" />
       </div>
 
-      {/* Dots — gallery is section 9 (last) */}
-      <div className="flex justify-center gap-2 mt-3 relative z-10">
+      {/* Dots — position indicator only (nav is arrow + swipe). */}
+      <div className="flex justify-center gap-2 mt-3 relative z-10" aria-hidden="true">
         {Array.from({ length: DOTS }, (_, i) => (
-          <button
+          <span
             key={i}
-            onClick={() => { if (i === 7) router.push('/studio'); else if (i < 7) router.push('/'); }}
             className={`h-2 rounded-full transition-all duration-300 ${
               i === 8 ? 'w-6 bg-[var(--gold)]' : 'w-2 bg-cream-ghost'
             }`}

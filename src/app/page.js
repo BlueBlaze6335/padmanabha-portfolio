@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SacredSymbol from '@/components/SacredSymbols';
 import { Origin, Forge, Transmissions, Resonance, Archive, Frequencies, Wavelength } from '@/components/sections/Sections';
 import {
-  resumeAudio, startDrone, updateDrone, stopDrone,
-  playTransitionNote, playPing, getAudioContext,
+  resumeAudio, startDrone, updateDrone, stopDrone, isDroneActive,
+  playTransitionNote, playPing, getAudioContext, getAnalyser,
 } from '@/lib/audio/engine';
 
 const SECTIONS = [
@@ -88,6 +88,10 @@ export default function HomePage() {
     }
   };
 
+  // Reflect the shared drone state on mount — if the visitor is returning
+  // from /studio with audio running, the toggle should read "On".
+  useEffect(() => { setAudioOn(isDroneActive()); }, []);
+
   // Keyboard
   useEffect(() => {
     const onKey = (e) => {
@@ -98,43 +102,61 @@ export default function HomePage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [idx, goTo]);
 
-  // Waveform canvas
+  // Waveform canvas — fed by the live AnalyserNode when audio is on, so
+  // what you see IS what's playing. The visual is literally signal in noise:
+  // the drone is the noise floor, pings and transitions are the peaks.
   useEffect(() => {
     const cvs = waveRef.current;
     if (!cvs) return;
     const ctx = cvs.getContext('2d');
+    const analyser = audioOn ? getAnalyser() : null;
+    const buf = analyser ? new Uint8Array(analyser.fftSize) : null;
+
     const draw = () => {
       const dpr = window.devicePixelRatio || 1;
       const w = cvs.clientWidth;
       const h = cvs.clientHeight;
       if (cvs.width !== w * dpr) { cvs.width = w * dpr; cvs.height = h * dpr; ctx.scale(dpr, dpr); }
-      wavePhase.current += 0.02;
       ctx.clearRect(0, 0, w, h);
-      const freq = sec.freq;
       const mid = h / 2;
-      const amp = audioOn ? h * 0.3 : h * 0.08;
-      const period = w / (freq * 0.055);
-      ctx.beginPath(); ctx.strokeStyle = '#d4ac54'; ctx.lineWidth = audioOn ? 1.3 : 0.6; ctx.globalAlpha = audioOn ? 0.4 : 0.08;
-      for (let x = 0; x < w; x++) {
-        const t = ((x / period) + wavePhase.current) % 1;
-        const saw = 2 * t - 1;
-        const env = Math.sin((x / w) * Math.PI);
-        const y = mid + saw * amp * env;
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+
+      if (analyser && buf) {
+        analyser.getByteTimeDomainData(buf);
+        // Peak amplitude in the window (for the glow intensity)
+        let peak = 0;
+        for (let i = 0; i < buf.length; i++) { const v = Math.abs(buf[i] - 128); if (v > peak) peak = v; }
+        const intensity = Math.min(1, peak / 60);
+
+        // Gold waveform (the signal)
+        ctx.beginPath();
+        ctx.strokeStyle = '#d4ac54';
+        ctx.lineWidth = 1.2 + intensity * 1.5;
+        ctx.globalAlpha = 0.3 + intensity * 0.6;
+        const step = buf.length / w;
+        for (let x = 0; x < w; x++) {
+          const v = buf[Math.floor(x * step)] / 128 - 1;
+          const env = Math.sin((x / w) * Math.PI);
+          const y = mid + v * (h * 0.42) * env;
+          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      } else {
+        // Idle: synthetic low-amplitude sine so the frame never looks dead
+        wavePhase.current += 0.015;
+        ctx.beginPath(); ctx.strokeStyle = '#d4ac54'; ctx.lineWidth = 0.6; ctx.globalAlpha = 0.12;
+        for (let x = 0; x < w; x++) {
+          const env = Math.sin((x / w) * Math.PI);
+          const y = mid + Math.sin(x * 0.05 + wavePhase.current) * h * 0.07 * env;
+          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke(); ctx.globalAlpha = 1;
       }
-      ctx.stroke();
-      ctx.beginPath(); ctx.strokeStyle = '#6a5acd'; ctx.lineWidth = audioOn ? 0.8 : 0.4; ctx.globalAlpha = audioOn ? 0.2 : 0.04;
-      for (let x = 0; x < w; x++) {
-        const env = Math.sin((x / w) * Math.PI);
-        const y = mid + Math.sin(x * Math.PI * 2 / (period * 2) + wavePhase.current) * amp * 0.5 * env;
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
-      ctx.stroke(); ctx.globalAlpha = 1;
       waveAnim.current = requestAnimationFrame(draw);
     };
     draw();
     return () => cancelAnimationFrame(waveAnim.current);
-  }, [sec.freq, audioOn]);
+  }, [audioOn]);
 
   // Audio toggle
   const toggleAudio = () => {
