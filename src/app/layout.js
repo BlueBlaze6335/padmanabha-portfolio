@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import SNRMeter from '@/components/SNRMeter';
 import AudioHistogram from '@/components/AudioHistogram';
+import AudioUnlock from '@/components/AudioUnlock';
 
 export const metadata = {
   title: 'Padmanabha Banerjee — Signal in the Noise',
@@ -27,6 +28,7 @@ export default function RootLayout({ children }) {
         <div className="orb orb-indigo" style={{ top: '20%', left: '10%', width: 300, height: 300 }} aria-hidden="true" />
         <div className="orb orb-gold" style={{ bottom: '15%', right: '8%', width: 240, height: 240 }} aria-hidden="true" />
         <main className="relative z-10">{children}</main>
+        <AudioUnlock />
         <SNRMeter />
         {/* Live spectrum analyser footer on every page. Pointer-events
             none so it never interferes with page content. */}
