@@ -107,56 +107,7 @@ export function getMaster() {
 export function resumeAudio() {
   const ctx = getAudioContext();
   if (ctx.state === 'suspended') ctx.resume();
-  ensureAmbientSource();
   return ctx;
-}
-
-// A very quiet pink-noise-ish source that always runs once the audio
-// context is alive. Inaudible over the drone (~-55 dBFS) but gives
-// the AnalyserNode continuous signal, so the spectrum footer has
-// something to render even when the visitor hasn't toggled the drone
-// or hit Play in the DAW. As soon as they DO, those sounds dominate.
-let _ambientSource = null;
-let _ambientGain = null;
-function ensureAmbientSource() {
-  if (_ambientSource) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-  try {
-    // Two seconds of white noise, looped — cheap + seamless.
-    const bufLen = ctx.sampleRate * 2;
-    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-
-    // Shape like pink-ish noise — roll off the highs so it doesn't
-    // sound hissy, and cut sub lows so it doesn't beat with the drone.
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 2500;
-    lp.Q.value = 0.5;
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass';
-    hp.frequency.value = 60;
-    hp.Q.value = 0.5;
-
-    const gain = ctx.createGain();
-    // Louder ambient so the spectrum bars actually rise to a visible
-    // height — still below perceptual threshold once the drone plays
-    // on top, but tall enough to dance on its own.
-    gain.gain.value = 0.012;
-    _ambientGain = gain;
-
-    src.connect(hp); hp.connect(lp); lp.connect(gain);
-    gain.connect(getMaster());
-    src.start();
-    _ambientSource = src;
-  } catch (e) {
-    // Silently degrade — spectrum will still work from other sources.
-  }
 }
 
 // ─── Distortion Curve (shared) ──────────────────────────────────
