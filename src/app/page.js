@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import SacredSymbol from '@/components/SacredSymbols';
+import AudioHistogram from '@/components/AudioHistogram';
 import { Origin, Forge, Transmissions, Resonance, Archive, Frequencies, Wavelength } from '@/components/sections/Sections';
 import {
   resumeAudio, startDrone, updateDrone, stopDrone, isDroneActive,
-  playTransitionNote, playPing, getAudioContext, getAnalyser,
+  playTransitionNote, playPing, getAudioContext,
 } from '@/lib/audio/engine';
 
 const SECTIONS = [
@@ -28,9 +29,6 @@ export default function HomePage() {
   const [fading, setFading] = useState(false);
   const router = useRouter();
   const touchStart = useRef({ x: 0, y: 0 });
-  const waveRef = useRef(null);
-  const wavePhase = useRef(0);
-  const waveAnim = useRef(null);
 
   const sec = SECTIONS[idx];
 
@@ -111,80 +109,6 @@ export default function HomePage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [idx, goTo]);
-
-  // Waveform canvas — fed by the live AnalyserNode when audio is on, so
-  // what you see IS what's playing. The visual is literally signal in noise:
-  // the drone is the noise floor, pings and transitions are the peaks.
-  //
-  // Throttled to ~30 Hz + disabled when prefers-reduced-motion — halves
-  // main-thread work vs. 60 Hz RAF, keeps the audio thread fed when the
-  // DAW is running many voices.
-  useEffect(() => {
-    const cvs = waveRef.current;
-    if (!cvs) return;
-    const ctx = cvs.getContext('2d');
-    const analyser = audioOn ? getAnalyser() : null;
-    const buf = analyser ? new Uint8Array(analyser.fftSize) : null;
-    const reducedMotion = typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    let lastDrawAt = 0;
-    const minFrameMs = 33; // ~30 Hz
-
-    const draw = (now) => {
-      if (now - lastDrawAt < minFrameMs) {
-        waveAnim.current = requestAnimationFrame(draw);
-        return;
-      }
-      lastDrawAt = now;
-      const dpr = window.devicePixelRatio || 1;
-      const w = cvs.clientWidth;
-      const h = cvs.clientHeight;
-      if (cvs.width !== w * dpr) { cvs.width = w * dpr; cvs.height = h * dpr; ctx.scale(dpr, dpr); }
-      ctx.clearRect(0, 0, w, h);
-      const mid = h / 2;
-
-      if (analyser && buf) {
-        analyser.getByteTimeDomainData(buf);
-        // Peak amplitude in the window (for the glow intensity)
-        let peak = 0;
-        for (let i = 0; i < buf.length; i++) { const v = Math.abs(buf[i] - 128); if (v > peak) peak = v; }
-        const intensity = Math.min(1, peak / 60);
-
-        // Gold waveform (the signal)
-        ctx.beginPath();
-        ctx.strokeStyle = '#d4ac54';
-        ctx.lineWidth = 1.2 + intensity * 1.5;
-        ctx.globalAlpha = 0.3 + intensity * 0.6;
-        const step = buf.length / w;
-        for (let x = 0; x < w; x++) {
-          const v = buf[Math.floor(x * step)] / 128 - 1;
-          const env = Math.sin((x / w) * Math.PI);
-          const y = mid + v * (h * 0.42) * env;
-          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      } else {
-        // Idle: synthetic low-amplitude sine so the frame never looks dead
-        wavePhase.current += 0.015;
-        ctx.beginPath(); ctx.strokeStyle = '#d4ac54'; ctx.lineWidth = 0.6; ctx.globalAlpha = 0.12;
-        for (let x = 0; x < w; x++) {
-          const env = Math.sin((x / w) * Math.PI);
-          const y = mid + Math.sin(x * 0.05 + wavePhase.current) * h * 0.07 * env;
-          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        ctx.stroke(); ctx.globalAlpha = 1;
-      }
-      if (!reducedMotion) waveAnim.current = requestAnimationFrame(draw);
-    };
-    if (reducedMotion) {
-      // One static frame, no animation.
-      draw(performance.now());
-    } else {
-      waveAnim.current = requestAnimationFrame(draw);
-    }
-    return () => cancelAnimationFrame(waveAnim.current);
-  }, [audioOn]);
 
   // Audio toggle
   const toggleAudio = () => {
@@ -268,12 +192,9 @@ export default function HomePage() {
         {idx === 0 ? '← swipe or arrow keys →' : `${idx + 1} / ${SECTIONS.length}`}
       </p>
 
-      {/* Waveform */}
-      <canvas
-        ref={waveRef}
-        className="fixed bottom-0 left-0 right-0 z-5 pointer-events-none"
-        style={{ width: '100%', height: 70 }}
-      />
+      {/* Frequency-histogram footer — gold bars pulse from real audio
+          when the drone is on, breathe gently when it's off. */}
+      <AudioHistogram active={audioOn} />
     </div>
   );
 }

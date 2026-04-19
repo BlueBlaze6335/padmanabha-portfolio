@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SacredSymbol from '@/components/SacredSymbols';
+import AudioHistogram from '@/components/AudioHistogram';
 import {
-  resumeAudio, getAudioContext, getAnalyser, playDrumHit, initDrumBuffers,
+  resumeAudio, getAudioContext, playDrumHit, initDrumBuffers,
   playSynthNote, playBassNote, togglePad, isPadActive,
   startDrone, updateDrone, stopDrone, isDroneActive,
   Scheduler, SYNTH_PROFILES, BASS_PROFILES,
@@ -63,9 +64,6 @@ export default function StudioPage() {
   const volRef = useRef(volumes);
   const profileRef = useRef({ synth: synthProfile, bass: bassProfile });
   const touchStart = useRef({ x: 0, y: 0 });
-  const waveRef = useRef(null);
-  const wavePhase = useRef(0);
-  const waveAnim = useRef(null);
 
   // Keep refs in sync
   useEffect(() => { gridsRef.current = { drum: drumGrid, synth: synthGrid, bass: bassGrid }; }, [drumGrid, synthGrid, bassGrid]);
@@ -102,54 +100,6 @@ export default function StudioPage() {
     if (audioOn) { stopDrone(); setAudioOn(false); }
     else { resumeAudio(); startDrone(7); setAudioOn(true); }
   };
-
-  // Waveform canvas — throttled to ~30 Hz and disabled when
-  // prefers-reduced-motion is set. Keeps canvas off the audio thread's
-  // tick budget while the DAW is hammering voices.
-  useEffect(() => {
-    const cvs = waveRef.current;
-    if (!cvs) return;
-    const ctx = cvs.getContext('2d');
-    const analyser = getAnalyser();
-    const buf = new Uint8Array(analyser.fftSize);
-    const reducedMotion = typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    let lastDrawAt = 0;
-    const minFrameMs = 33;
-    const draw = (now) => {
-      if (now - lastDrawAt < minFrameMs) {
-        if (!reducedMotion) waveAnim.current = requestAnimationFrame(draw);
-        return;
-      }
-      lastDrawAt = now;
-      const dpr = window.devicePixelRatio || 1;
-      const w = cvs.clientWidth;
-      const h = cvs.clientHeight;
-      if (cvs.width !== w * dpr) { cvs.width = w * dpr; cvs.height = h * dpr; ctx.scale(dpr, dpr); }
-      ctx.clearRect(0, 0, w, h);
-      const mid = h / 2;
-      analyser.getByteTimeDomainData(buf);
-      let peak = 0;
-      for (let i = 0; i < buf.length; i++) { const v = Math.abs(buf[i] - 128); if (v > peak) peak = v; }
-      const intensity = Math.min(1, peak / 60);
-      ctx.beginPath();
-      ctx.strokeStyle = '#d4ac54';
-      ctx.lineWidth = 1 + intensity * 1.5;
-      ctx.globalAlpha = 0.25 + intensity * 0.65;
-      const step = buf.length / w;
-      for (let x = 0; x < w; x++) {
-        const v = buf[Math.floor(x * step)] / 128 - 1;
-        const env = Math.sin((x / w) * Math.PI);
-        const y = mid + v * (h * 0.42) * env;
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
-      ctx.stroke(); ctx.globalAlpha = 1;
-      if (!reducedMotion) waveAnim.current = requestAnimationFrame(draw);
-    };
-    if (reducedMotion) draw(performance.now());
-    else waveAnim.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(waveAnim.current);
-  }, []);
 
   // Init scheduler once
   useEffect(() => {
@@ -539,12 +489,8 @@ export default function StudioPage() {
         8 / 9 · swipe or <Link href="/gallery" className="hover:text-[var(--gold)]">archive →</Link>
       </p>
 
-      {/* Waveform */}
-      <canvas
-        ref={waveRef}
-        className="fixed bottom-0 left-0 right-0 z-5 pointer-events-none"
-        style={{ width: '100%', height: 70 }}
-      />
+      {/* Frequency-histogram footer — same as the journey pages. */}
+      <AudioHistogram active={audioOn} />
     </div>
   );
 }
