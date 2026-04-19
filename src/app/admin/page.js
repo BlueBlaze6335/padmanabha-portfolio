@@ -24,7 +24,7 @@ export default function AdminPage() {
           <h1 className="font-body text-2xl text-cream mb-6 text-center">Admin</h1>
           <input type="password" value={pass} onChange={(e) => setPass(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && login()}
-            placeholder="Password" className="w-full bg-cream/5 border border-cream-ghost rounded-lg px-4 py-3 text-cream font-body outline-none mb-3" />
+            placeholder="Password" className="field mb-3" style={{ padding: '12px 16px' }} />
           {error && <p className="text-red-400 text-sm mb-3 text-center">{error}</p>}
           <button onClick={login} className="w-full font-mono text-[10px] tracking-wider uppercase py-3 rounded-lg border border-[var(--gold-dim)] text-[var(--gold)] bg-[var(--gold-ghost)] hover:bg-[var(--gold)]/10 transition-all">
             Enter

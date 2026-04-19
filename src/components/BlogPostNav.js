@@ -47,7 +47,7 @@ export default function BlogPostNav({ children }) {
       <Link
         href="/blog"
         aria-label="Back to all posts"
-        className="fixed top-3 left-3 z-50 inline-flex items-center gap-1.5 font-mono text-[9px] tracking-wider uppercase px-3 py-1.5 rounded-full border border-cream-ghost text-cream-dim hover:text-[var(--gold)] hover:border-[var(--gold-dim)] transition-all"
+        className="pill fixed top-3 left-3 z-50"
       >
         <span aria-hidden="true">‹</span>
         <span>All posts</span>

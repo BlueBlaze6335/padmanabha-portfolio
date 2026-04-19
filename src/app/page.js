@@ -204,23 +204,17 @@ export default function HomePage() {
       {/* Audio toggle */}
       <button
         onClick={toggleAudio}
-        className={`fixed top-3 right-3 z-50 font-mono text-[9px] tracking-wider uppercase px-3 py-1.5 rounded-full border transition-all ${
-          audioOn ? 'text-[var(--gold)] border-[var(--gold-dim)]' : 'text-cream-dim border-cream-ghost'
-        }`}
+        className={`pill fixed top-3 right-3 z-50 ${audioOn ? 'pill-active' : ''}`}
       >
         {audioOn ? '♪ On' : '♪ Off'}
       </button>
 
       {/* Navigation arrows */}
       {idx > 0 && (
-        <button onClick={() => goTo(idx - 1)} className="fixed left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
-          ‹
-        </button>
+        <button onClick={() => goTo(idx - 1)} className="nav-arrow" style={{ left: '12px' }}>‹</button>
       )}
       {idx < SECTIONS.length - 1 && (
-        <button onClick={() => goTo(idx + 1)} className="fixed right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
-          ›
-        </button>
+        <button onClick={() => goTo(idx + 1)} className="nav-arrow" style={{ right: '12px' }}>›</button>
       )}
 
       {/* Sacred symbol */}

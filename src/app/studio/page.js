@@ -324,22 +324,16 @@ export default function StudioPage() {
       {/* Audio toggle — matches main journey */}
       <button
         onClick={toggleAudio}
-        className={`fixed top-3 right-3 z-50 font-mono text-[9px] tracking-wider uppercase px-3 py-1.5 rounded-full border transition-all ${
-          audioOn ? 'text-[var(--gold)] border-[var(--gold-dim)]' : 'text-cream-dim border-cream-ghost'
-        }`}
+        className={`pill fixed top-3 right-3 z-50 ${audioOn ? 'pill-active' : ''}`}
       >
         {audioOn ? '♪ On' : '♪ Off'}
       </button>
 
       {/* Left arrow → back to Wavelength (the section you'd naturally
           come from on the journey). */}
-      <button onClick={() => router.push('/?s=6')} className="fixed left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
-        ‹
-      </button>
+      <button onClick={() => router.push('/?s=6')} className="nav-arrow" style={{ left: '12px' }}>‹</button>
       {/* Right arrow → gallery */}
-      <button onClick={() => router.push('/gallery')} className="fixed right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
-        ›
-      </button>
+      <button onClick={() => router.push('/gallery')} className="nav-arrow" style={{ right: '12px' }}>›</button>
 
       {/* Sacred symbol — journey size */}
       <div className="flex justify-center pt-8 relative z-10">
@@ -406,7 +400,7 @@ export default function StudioPage() {
             <span className="font-mono text-[8px] text-cream-dim/35 tracking-wider uppercase mr-1">Sound</span>
             {Object.keys(SYNTH_PROFILES).map(p => (
               <button key={p} onClick={() => setSynthProfile(p)}
-                className={`font-mono text-[9px] px-2.5 py-0.5 rounded-full border transition-all ${synthProfile === p ? 'text-[var(--gold)] border-[var(--gold-dim)] bg-[var(--gold-ghost)]' : 'text-cream-dim/50 border-cream-ghost'}`}>
+                className={`chip ${synthProfile === p ? 'chip-active' : ''}`}>
                 {p.charAt(0).toUpperCase() + p.slice(1)}
               </button>
             ))}
@@ -417,7 +411,7 @@ export default function StudioPage() {
             <span className="font-mono text-[8px] text-cream-dim/35 tracking-wider uppercase mr-1">Sound</span>
             {Object.keys(BASS_PROFILES).map(p => (
               <button key={p} onClick={() => setBassProfile(p)}
-                className={`font-mono text-[9px] px-2.5 py-0.5 rounded-full border transition-all ${bassProfile === p ? 'text-[var(--gold)] border-[var(--gold-dim)] bg-[var(--gold-ghost)]' : 'text-cream-dim/50 border-cream-ghost'}`}>
+                className={`chip ${bassProfile === p ? 'chip-active' : ''}`}>
                 {p.charAt(0).toUpperCase() + p.slice(1)}
               </button>
             ))}
@@ -467,7 +461,7 @@ export default function StudioPage() {
       {!saved ? (
         <div className="flex gap-1.5 mt-3 flex-wrap">
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name"
-            className="flex-1 min-w-[120px] bg-cream/5 border border-cream-ghost rounded-md px-3 py-1.5 text-cream font-body text-[12px] outline-none" />
+            className="field flex-1 min-w-[120px]" />
           <button onClick={handleSave}
             className="font-mono text-[9px] tracking-wider uppercase px-4 py-1.5 rounded-md border border-[var(--gold-dim)] text-[var(--gold)] bg-[var(--gold-ghost)] hover:bg-[var(--gold)]/10 transition-all">
             Save to gallery
@@ -491,13 +485,13 @@ export default function StudioPage() {
           <div className="flex flex-col gap-2">
             <div className="flex gap-2 flex-wrap">
               <input type="text" value={msgName} onChange={(e) => setMsgName(e.target.value)} placeholder="Name"
-                className="flex-1 min-w-[120px] bg-cream/5 border border-cream-ghost rounded-md px-3 py-1.5 text-cream font-body text-[12px] outline-none focus:border-[var(--gold-dim)]" />
+                className="field flex-1 min-w-[120px]" />
               <input type="email" value={msgEmail} onChange={(e) => setMsgEmail(e.target.value)} placeholder="Email (optional)"
-                className="flex-1 min-w-[140px] bg-cream/5 border border-cream-ghost rounded-md px-3 py-1.5 text-cream font-body text-[12px] outline-none focus:border-[var(--gold-dim)]" />
+                className="field flex-1 min-w-[140px]" />
             </div>
             <textarea value={msgBody} onChange={(e) => setMsgBody(e.target.value)} placeholder="Your message"
               rows={3}
-              className="w-full bg-cream/5 border border-cream-ghost rounded-md px-3 py-2 text-cream font-body text-[12px] outline-none focus:border-[var(--gold-dim)] resize-y" />
+              className="field field-area" />
             {msgError && <p className="font-mono text-[10px] text-red-300/70 tracking-wider">{msgError}</p>}
             <button onClick={handleSendMessage} disabled={msgSending}
               className="self-end font-mono text-[9px] tracking-wider uppercase px-4 py-1.5 rounded-md border border-[var(--gold-dim)] text-[var(--gold)] bg-[var(--gold-ghost)] hover:bg-[var(--gold)]/10 transition-all disabled:opacity-50">

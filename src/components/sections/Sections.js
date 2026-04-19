@@ -205,7 +205,7 @@ export function Archive({ onPing }) {
       <p className="font-body text-[14px] text-cream-dim leading-[1.8] mb-4">Paintings, photographs, and experiments. Click to expand.</p>
       <div className="flex gap-1.5 mb-4 flex-wrap">
         {CATEGORY_FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={`font-mono text-[9px] tracking-wider uppercase px-3 py-1 rounded-full border transition-all ${filter === f ? 'text-[var(--gold)] border-[var(--gold-dim)] bg-[var(--gold-ghost)]' : 'text-cream-dim/40 border-cream-ghost hover:text-cream-dim'}`}>{f}</button>
+          <button key={f} onClick={() => setFilter(f)} className={`chip ${filter === f ? 'chip-active' : ''}`}>{f}</button>
         ))}
       </div>
       {visible.length > 0 ? (

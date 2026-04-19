@@ -110,9 +110,7 @@ export default function GalleryPage() {
       style={{ touchAction: 'pan-y' }}
     >
       {/* Left arrow → studio */}
-      <button onClick={() => router.push('/studio')} className="fixed left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full border border-cream-ghost text-cream-dim hover:border-[var(--gold-dim)] hover:text-[var(--gold)] flex items-center justify-center transition-all">
-        ‹
-      </button>
+      <button onClick={() => router.push('/studio')} className="nav-arrow" style={{ left: '12px' }}>‹</button>
 
       {/* Sacred symbol — journey size */}
       <div className="flex justify-center pt-8 relative z-10">
