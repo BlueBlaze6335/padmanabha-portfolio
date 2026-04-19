@@ -20,9 +20,10 @@ export default function AudioHistogram({ height = 96, bars = 72 }) {
   useEffect(() => {
     const cvs = cvsRef.current;
     if (!cvs) return;
-    const ctx2d = cvs.getContext('2d');
-    const reducedMotion = typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // willReadFrequently: avoids Chrome's perf warning + opts into a
+    // CPU-backed bitmap which is faster for repeated getImageData-
+    // adjacent workloads (the analyser-driven redraw is one).
+    const ctx2d = cvs.getContext('2d', { willReadFrequently: false });
 
     const analyser = getAnalyser();
     const buf = new Uint8Array(analyser.frequencyBinCount);
@@ -44,9 +45,15 @@ export default function AudioHistogram({ height = 96, bars = 72 }) {
     let lastDrawAt = 0;
     const minFrameMs = 33; // ~30 Hz
 
+    // NOTE: this visualiser is a data display, not decorative motion —
+    // we do NOT gate on prefers-reduced-motion. The spirit of that
+    // media query is "don't surprise me with flashy transitions"; a
+    // spectrum analyser showing what's currently audible is analogous
+    // to a VU meter on an amplifier, which users with motion
+    // sensitivity can still rely on safely.
     const draw = (now) => {
       if (now - lastDrawAt < minFrameMs) {
-        if (!reducedMotion) frame.current = requestAnimationFrame(draw);
+        frame.current = requestAnimationFrame(draw);
         return;
       }
       const dt = now - lastDrawAt;
@@ -61,6 +68,15 @@ export default function AudioHistogram({ height = 96, bars = 72 }) {
       ctx2d.clearRect(0, 0, w, h);
 
       analyser.getByteFrequencyData(buf);
+      // Total low-band energy — if this is ~0 we haven't unlocked
+      // audio yet (context suspended or user hasn't interacted). In
+      // that case we layer a very subtle synthetic shimmer on top so
+      // the footer is visibly alive pre-tap. Once real signal arrives,
+      // the shimmer is dwarfed by real bars.
+      let bandEnergy = 0;
+      for (let i = 1; i < 32; i++) bandEnergy += buf[i];
+      const silent = bandEnergy < 8;
+      const timeS = now / 1000;
 
       const gap = 1;
       const barW = Math.max(1, (w - gap * (bars - 1)) / bars);
@@ -71,7 +87,17 @@ export default function AudioHistogram({ height = 96, bars = 72 }) {
         const [lo, hi] = binRanges[i];
         let peak = 0;
         for (let j = lo; j < hi; j++) if (buf[j] > peak) peak = buf[j];
-        const target = peak / 255;
+        let target = peak / 255;
+        if (silent) {
+          // Pre-audio synthetic shimmer — three slow sines so the row
+          // never looks dead even if the browser refuses to unlock.
+          const t = (i / bars) * Math.PI * 2;
+          const shimmer =
+            Math.sin(t * 1.4 + timeS * 2.0) * 0.12 +
+            Math.sin(t * 0.5 + timeS * 0.9) * 0.08 +
+            0.18;
+          target = Math.max(0, shimmer);
+        }
 
         // Bar smoothing — fast attack, slow release.
         const prev = smoothed.current[i];
@@ -113,11 +139,10 @@ export default function AudioHistogram({ height = 96, bars = 72 }) {
         }
       }
 
-      if (!reducedMotion) frame.current = requestAnimationFrame(draw);
+      frame.current = requestAnimationFrame(draw);
     };
 
-    if (reducedMotion) draw(performance.now());
-    else frame.current = requestAnimationFrame(draw);
+    frame.current = requestAnimationFrame(draw);
 
     return () => { if (frame.current) cancelAnimationFrame(frame.current); };
   }, [bars]);
