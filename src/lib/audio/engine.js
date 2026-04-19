@@ -569,50 +569,50 @@ export function playTransitionNote(freq) {
 }
 
 // ─── Interaction Ping (for button clicks in sections) ───────────
-// Immersive synth pad for interactive elements — not a game beep.
+// Ambient chord chime for interactive elements — a room that rings,
+// not a tap. The click layer should feel like you struck a soft note
+// in a large room and the air carries it away slowly.
 //
-// Sound design: a 3-voice chord (root + perfect 5th + octave) plus a
-// sub-octave for body, each voice built from two slightly detuned
-// sawtooths for the super-saw shimmer. A single lowpass filter sweeps
-// from bright → dark over the 0.55 s tail so the hit feels like a pad
-// note rather than a bell. Soft 25 ms attack, exponential decay.
+// Design:
+// - Triangle oscillators (softer harmonic content than sawtooth — no
+//   harshness at onset).
+// - 60 ms attack ramp so the note fades in rather than punches.
+// - 1.5 s exponential decay for long sustain.
+// - Low-Q lowpass filter sweeps from f·3.5 → f·1.5 Hz — keeps the
+//   whole note under ~2 kHz so it never bites.
+// - Sent to a dedicated delay bus (0.24 s delay, 0.5 feedback, big
+//   wet) so each ping grows into a tail of repeating echoes, giving
+//   a reverb-like ambience.
 //
-// The input `freq` is the section's parent note (C2–C3, 65–130 Hz).
-// Transposed up 2 octaves so the fundamental lands at 260–520 Hz where
-// phone speakers actually reproduce it. The chromatic progression that
-// handlePing drives (one semitone per index) is preserved at the root;
-// the 5th + octave voices shift in parallel so each click reads as a
-// chord and successive clicks trace a chromatic harmonic line.
-export function playPing(freq, velocity = 0.85) {
+// Chord voicing (root + 5th + octave + sub) preserved from before —
+// the harmony is right; only the timbre + envelope needed softening.
+export function playPing(freq, velocity = 0.8) {
   const ctx = resumeAudio();
   const now = ctx.currentTime;
   const master = getMaster();
   const f0 = freq * 4; // up 2 octaves into phone-speaker range
 
-  // Shared filter + envelope feed the whole chord so node count per
-  // click stays bounded (important with many successive clicks).
   const filt = ctx.createBiquadFilter();
   filt.type = 'lowpass';
-  filt.Q.value = 3;
-  filt.frequency.setValueAtTime(f0 * 8, now);
-  filt.frequency.exponentialRampToValueAtTime(f0 * 2, now + 0.8);
+  filt.Q.value = 1.2;
+  filt.frequency.setValueAtTime(f0 * 3.5, now);
+  filt.frequency.exponentialRampToValueAtTime(f0 * 1.5, now + 1.2);
 
-  // Peak ~0.42 — deliberately sits ~2× louder than the drone level,
-  // so the click layer cuts through without stopping the drone from
-  // being present underneath. Attack is soft enough to sound pad-like
-  // (15 ms) but fast enough to feel responsive. Tail rings for ~0.8 s
-  // which reads as "a chord was struck" rather than a tap.
   const env = ctx.createGain();
   env.gain.setValueAtTime(0.0001, now);
-  env.gain.linearRampToValueAtTime(0.42 * velocity, now + 0.015);
-  env.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+  env.gain.linearRampToValueAtTime(0.22 * velocity, now + 0.06); // slow 60 ms attack
+  env.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
 
   filt.connect(env);
   env.connect(master);
 
-  // The chord: root, perfect 5th (2^(7/12)), octave, and a sub-octave
-  // for warmth. Amps picked so the root dominates and harmonics
-  // support rather than compete.
+  // Ambient delay send — long wet tail gives reverb-like space.
+  // Shared bus so rapid clicks layer into an evolving wash instead of
+  // allocating new delay graphs. Separate bus key from the synth/bass
+  // engine delays so ping tails don't muddy DAW voices.
+  const ambient = getDelayBus('ping-ambient', 0.24, 0.5, 0.55);
+  env.connect(ambient.input);
+
   const chord = [
     { hz: f0,             amp: 0.55 }, // root
     { hz: f0 * 1.49831,   amp: 0.28 }, // perfect 5th
@@ -620,15 +620,15 @@ export function playPing(freq, velocity = 0.85) {
     { hz: f0 * 0.5,       amp: 0.22 }, // sub-octave
   ];
 
-  const stop = now + 0.82;
+  const stop = now + 1.5;
   for (const v of chord) {
-    // Two detuned sawtooths per voice (± 4 cents) — super-saw lite.
+    // Two detuned triangles per voice (± 3 cents) — softer chorus.
     const o1 = ctx.createOscillator();
     const o2 = ctx.createOscillator();
-    o1.type = 'sawtooth';
-    o2.type = 'sawtooth';
-    o1.frequency.setValueAtTime(v.hz * 0.99769, now); // -4 cents
-    o2.frequency.setValueAtTime(v.hz * 1.00231, now); // +4 cents
+    o1.type = 'triangle';
+    o2.type = 'triangle';
+    o1.frequency.setValueAtTime(v.hz * 0.99827, now); // -3 cents
+    o2.frequency.setValueAtTime(v.hz * 1.00173, now); // +3 cents
     const vg = ctx.createGain();
     vg.gain.value = v.amp;
     o1.connect(vg);
@@ -641,5 +641,5 @@ export function playPing(freq, velocity = 0.85) {
   }
 
   // Release the dry chain once the envelope is done — helps GC.
-  setTimeout(() => { try { env.disconnect(); filt.disconnect(); } catch (e) {} }, 900);
+  setTimeout(() => { try { env.disconnect(); filt.disconnect(); } catch (e) {} }, 1700);
 }

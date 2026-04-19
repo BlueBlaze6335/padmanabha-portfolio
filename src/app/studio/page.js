@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SacredSymbol from '@/components/SacredSymbols';
 import AudioHistogram from '@/components/AudioHistogram';
+import { getVisitorProgression } from '@/lib/visitor';
 import {
   resumeAudio, getAudioContext, playDrumHit, initDrumBuffers,
   playSynthNote, playBassNote, togglePad, isPadActive,
@@ -36,7 +37,38 @@ function presetDrums(g) {
   return g;
 }
 
+// Seed the synth grid with the visitor's personal chord progression,
+// rooted on C3 (the studio's parent note). One chord per bar of 4
+// steps: chord[0] plays at step 0, chord[1] at step 1, chord[2] at 2.
+// Visitors hear "their key" the moment they hit Play.
+function presetSynthFromProgression(grid, progression) {
+  const ROOT_MIDI = 48; // C3
+  // Map a semitone count from ROOT_MIDI to one of the SYNTH_NOTES keys
+  // (C3..C4 = 0..12 semitones). Anything above C4 wraps down an octave.
+  const keyForSemi = (semi) => {
+    const s = ((semi % 12) + 12) % 12;
+    return SYNTH_NOTES_ASCENDING[s];
+  };
+  progression.chords.forEach((chord, chordIdx) => {
+    const baseStep = chordIdx * 4;
+    chord.forEach((semi, toneIdx) => {
+      const step = baseStep + toneIdx;
+      if (step >= STEPS) return;
+      const k = keyForSemi(semi);
+      if (k && grid[k]) grid[k][step] = 1;
+    });
+  });
+  return grid;
+}
+// Ascending C3..B3 mapped by semitone — used to translate a semitone
+// offset into the top-down SYNTH_NOTES grid key.
+const SYNTH_NOTES_ASCENDING = ['C3','C#3','D3','D#3','E3','F3','F#3','G3','G#3','A3','A#3','B3'];
+
 export default function StudioPage() {
+  // Read visitor progression client-side only (localStorage access); on
+  // the server render pass the state starts from an empty synth grid
+  // and the visitor's seed is applied in a mount effect below.
+  const [progression, setProgression] = useState(null);
   const [drumGrid, setDrumGrid] = useState(() => presetDrums(emptyGrid(DR)));
   const [synthGrid, setSynthGrid] = useState(() => emptyGrid(SYNTH_NOTES));
   const [bassGrid, setBassGrid] = useState(() => emptyGrid(BASS_NOTES));
@@ -74,6 +106,15 @@ export default function StudioPage() {
   // means audio is "on"; the toggle lets the user kill it if they want to
   // focus on their own composition.
   useEffect(() => { setAudioOn(isDroneActive()); }, []);
+
+  // Resolve the visitor's musical identity once on mount. The synth
+  // grid is seeded with their first chord progression so hitting Play
+  // reveals it straight away.
+  useEffect(() => {
+    const prog = getVisitorProgression();
+    setProgression(prog);
+    setSynthGrid((g) => presetSynthFromProgression(g, prog));
+  }, []);
 
   // Swipe handlers — ignore if the touch started on an interactive element
   // (inputs, sliders, grid cells, buttons). Otherwise sliding a BPM knob or
@@ -320,6 +361,11 @@ export default function StudioPage() {
       <p className="sub-label text-center mt-2 relative z-10">
         Make something
       </p>
+      {progression && (
+        <p className="text-center mt-2 relative z-10 font-mono text-[9px] tracking-[3px] uppercase text-[var(--gold)]/55">
+          your key · {progression.key} · {progression.mood}
+        </p>
+      )}
 
       <div className="relative z-10 mt-6 lg:mt-10 pb-28 px-3 max-w-2xl mx-auto">
 

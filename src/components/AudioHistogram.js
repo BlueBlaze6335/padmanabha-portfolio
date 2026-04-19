@@ -13,7 +13,7 @@ import { getAnalyser, getAudioContext } from '@/lib/audio/engine';
 //    section's parent frequency): a fundamental peak plus harmonics.
 //    So Origin (C2) idles with a low-left peak, Studio (C3) peaks
 //    slightly rightward. Gentle shimmer so it never feels static.
-export default function AudioHistogram({ note = 130.81, height = 72, bars = 44 }) {
+export default function AudioHistogram({ note = 130.81, height = 72, bars = 64 }) {
   const cvsRef = useRef(null);
   const frame = useRef(null);
   const smoothed = useRef(new Array(bars).fill(0));
@@ -104,9 +104,8 @@ export default function AudioHistogram({ note = 130.81, height = 72, bars = 44 }
       const liveMix = Math.min(1, Math.max(0, (totalEnergy - 120) / 900));
 
       const timeS = now / 1000;
-      const gap = 2;
-      const barW = Math.max(1.5, (w - gap * (bars - 1)) / bars);
-      const envAt = (x) => Math.pow(Math.sin((x / w) * Math.PI), 0.55);
+      const gap = 1;
+      const barW = Math.max(1, (w - gap * (bars - 1)) / bars);
 
       for (let i = 0; i < bars; i++) {
         // Real FFT value for this bar
@@ -121,7 +120,7 @@ export default function AudioHistogram({ note = 130.81, height = 72, bars = 44 }
           1
           + Math.sin(timeS * 1.8 + i * 0.22) * 0.18
           + Math.sin(timeS * 0.9 - i * 0.11) * 0.12;
-        const idle = noteProfile[i] * shimmer * 0.32;
+        const idle = noteProfile[i] * shimmer * 0.35;
 
         const target = live * liveMix + idle * (1 - liveMix);
 
@@ -132,13 +131,13 @@ export default function AudioHistogram({ note = 130.81, height = 72, bars = 44 }
         smoothed.current[i] = next;
 
         const x = i * (barW + gap);
-        const env = envAt(x + barW / 2);
-        const val = next * env;
+        // No horizontal envelope — bars span the full width continuously.
+        const val = next;
         const barH = Math.max(1.2, val * h * 0.92);
         const y = h - barH;
 
         // Ghost rail at full height so every bar reads even when silent.
-        ctx2d.fillStyle = 'rgba(212,172,84,0.06)';
+        ctx2d.fillStyle = 'rgba(212,172,84,0.05)';
         ctx2d.fillRect(x, 2, barW, h - 4);
 
         // Active bar: cream tip → gold → deep gold base gradient.

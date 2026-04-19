@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SacredSymbol from '@/components/SacredSymbols';
 import AudioHistogram from '@/components/AudioHistogram';
 import { Origin, Forge, Transmissions, Resonance, Archive, Frequencies, Wavelength } from '@/components/sections/Sections';
+import { semitoneForClick } from '@/lib/visitor';
 import {
   resumeAudio, startDrone, updateDrone, stopDrone, isDroneActive,
   playTransitionNote, playPing, getAudioContext,
@@ -67,13 +68,15 @@ export default function HomePage() {
     }, 200);
   }, [idx, fading, audioOn, router]);
 
-  // Ping for interactive elements — chromatic climb from the section's note.
-  // i=0 → root, i=1 → +1 semitone, etc. 2^(1/12) per step. playPing
-  // itself transposes the tone up into phone-speaker range; the frequency
-  // math here still fixes the pings harmonically to the section's drone.
+  // Ping for interactive elements — walks the visitor's personal chord
+  // progression rooted on the current section's note. Each 3 clicks
+  // traces one chord's tones; 4 chords fill a 12-click cycle. Lands on
+  // scale tones (not chromatic), so every click sits consonant with
+  // the drone and the visitor hears their own musical signature.
   const handlePing = useCallback((i) => {
     if (!audioOn) return;
-    playPing(sec.freq * Math.pow(2, i / 12), 1.0);
+    const semi = semitoneForClick(i);
+    playPing(sec.freq * Math.pow(2, semi / 12), 1.0);
   }, [audioOn, sec.freq]);
 
   // Swipe handlers
