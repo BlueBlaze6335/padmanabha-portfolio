@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SacredSymbol from '@/components/SacredSymbols';
-import AudioHistogram from '@/components/AudioHistogram';
 import { getVisitorProgression } from '@/lib/visitor';
 import {
   resumeAudio, getAudioContext, playDrumHit, initDrumBuffers,
@@ -535,9 +534,6 @@ export default function StudioPage() {
         8 / 9 · swipe or <Link href="/gallery" className="hover:text-[var(--gold)]">archive →</Link>
       </p>
 
-      {/* Live audio spectrum analyzer — pure FFT of everything the
-          DAW and drone produce. Silent when nothing plays. */}
-      <AudioHistogram />
     </div>
   );
 }

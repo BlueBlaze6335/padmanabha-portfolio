@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import SacredSymbol from '@/components/SacredSymbols';
-import AudioHistogram from '@/components/AudioHistogram';
 import { Origin, Forge, Transmissions, Resonance, Archive, Frequencies, Wavelength } from '@/components/sections/Sections';
 import { semitoneForClick } from '@/lib/visitor';
 import {
@@ -195,10 +194,6 @@ export default function HomePage() {
         {idx === 0 ? '← swipe or arrow keys →' : `${idx + 1} / ${SECTIONS.length}`}
       </p>
 
-      {/* Live audio spectrum analyzer — pure FFT from whatever's
-          actually playing (drone / DAW / pings). Silent when nothing
-          plays. X = frequency, Y = magnitude, with peak-hold markers. */}
-      <AudioHistogram />
     </div>
   );
 }

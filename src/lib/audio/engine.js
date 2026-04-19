@@ -575,73 +575,68 @@ export function playTransitionNote(freq) {
 }
 
 // ─── Interaction Ping (for button clicks in sections) ───────────
-// Clickable layer = harmonics above the drone's base note, using the
-// drone's own voice shape. Each click doesn't introduce a new
-// instrument — it colours the existing drone by reinforcing overtones
-// in its harmonic series.
+// Click layer — analog synth pad vibes. Power-chord voicing (sub +
+// root + perfect 5th + octave) on detuned sawtooths, through a
+// resonant lowpass that sweeps fast and wide (classic "wow" filter
+// motion). Long R&B tail into a cathedral delay bus. Sits under a
+// vocal line cleanly; consonant in any key because the voicing uses
+// only the 5th + octaves, no 3rd (major/minor ambiguity).
 //
-// Construction mirrors startDrone()'s recipe:
-// - sawtooth oscillators (matches drone timbre)
-// - same 3-voice detune set [1, 1.003, 0.997] for chorus character
-// - low-Q lowpass filter
-// Then stacks integer harmonics 2f, 3f, 4f, 5f above the chromatic-
-// shifted base note — so the fundamental is always the drone's, and
-// the click is a bouquet of overtones painted on top. Amps fall off
-// naturally (1/n-ish) so the harmonic series reads as a single lit-up
-// chord rather than a stack of beeps.
-//
-// Envelope: 60 ms soft attack, 1.8 s exponential tail. Dedicated
-// ambient delay bus gives a reverb-like wash as multiple clicks
-// overlap.
+// The character comes from three things:
+// 1) Detuned super-saws stacked per voice (3 saws each → 9 saws total)
+//    = fat analog body, no thin/beepy timbre.
+// 2) High-Q (Q=5) lowpass sweep from f·12 → f·2 over ~1.6 s — the
+//    resonant "wow" that Daft Punk / Disclosure / Weeknd pads lean on.
+// 3) A sine sub one octave below the root for sub-weight without
+//    adding to the high-mid harshness.
 export function playPing(freq, velocity = 0.8) {
   const ctx = resumeAudio();
   const now = ctx.currentTime;
   const master = getMaster();
-  // NOTE: freq here is the chromatic-shifted *base* note (bass range).
-  // Harmonics 2f..5f bring it into phone-speaker territory naturally.
 
+  // Resonant lowpass sweep — the source of the "analog synth" vibe.
   const filt = ctx.createBiquadFilter();
   filt.type = 'lowpass';
-  filt.Q.value = 1;
-  filt.frequency.setValueAtTime(freq * 8, now);
-  filt.frequency.exponentialRampToValueAtTime(freq * 4, now + 1.4);
+  filt.Q.value = 5;
+  filt.frequency.setValueAtTime(freq * 12, now);
+  filt.frequency.exponentialRampToValueAtTime(freq * 5, now + 0.25); // fast sweep-down
+  filt.frequency.exponentialRampToValueAtTime(freq * 2, now + 1.8);  // slow tail
 
+  // Envelope: fast attack so the click registers, soft exponential
+  // with a slightly prolonged sustain floor for that "vocal-holding"
+  // Weeknd pad feel before the final fade.
   const env = ctx.createGain();
   env.gain.setValueAtTime(0.0001, now);
-  env.gain.linearRampToValueAtTime(0.22 * velocity, now + 0.06);
-  env.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+  env.gain.linearRampToValueAtTime(0.26 * velocity, now + 0.03);
+  env.gain.exponentialRampToValueAtTime(0.10 * velocity, now + 0.35);
+  env.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
 
   filt.connect(env);
   env.connect(master);
 
-  // Ambient delay send — reverb-like tail; shared bus so rapid clicks
-  // bloom into each other instead of punctuating dryly.
-  const ambient = getDelayBus('ping-ambient', 0.24, 0.5, 0.55);
+  // Cathedral ambience — longer delay + higher feedback so pads bloom
+  // into each other like a Weeknd chorus reverb. Shared bus.
+  const ambient = getDelayBus('ping-ambient', 0.28, 0.58, 0.62);
   env.connect(ambient.input);
 
-  // Integer harmonics above the base. Amps follow a gentle 1/n-ish
-  // taper so high overtones don't dominate. 2f is octave, 3f is
-  // oct+5th, 4f is two octaves, 5f is two oct + major 3rd — the
-  // natural harmonic series of the base note.
-  const harmonics = [
-    { mult: 2, amp: 0.42 }, // octave — loudest of the new layers
-    { mult: 3, amp: 0.28 }, // twelfth
-    { mult: 4, amp: 0.18 }, // double octave
-    { mult: 5, amp: 0.10 }, // + major 3rd
+  // Power-chord voicing: sub + root + 5th + octave. No 3rd — sits
+  // over any chord the drone implies without clashing.
+  const voices = [
+    { mult: 0.5,    amp: 0.26, wave: 'sine',     detunes: [1] },            // sub
+    { mult: 1.0,    amp: 0.40, wave: 'sawtooth', detunes: [0.996, 1, 1.004] }, // root super-saw
+    { mult: 1.4983, amp: 0.30, wave: 'sawtooth', detunes: [0.996, 1.004] },   // P5 detuned
+    { mult: 2.0,    amp: 0.26, wave: 'sawtooth', detunes: [0.997, 1.003] },   // octave detuned
   ];
-  // Drone's own detune shape — three slightly offset voices per
-  // harmonic for the same detuned-chorus character the drone has.
-  const detunes = [1, 1.003, 0.997];
 
-  const stop = now + 1.8;
-  for (const h of harmonics) {
+  const stop = now + 2.0;
+  for (const v of voices) {
     const vg = ctx.createGain();
-    vg.gain.value = h.amp;
+    vg.gain.value = v.amp;
     vg.connect(filt);
-    for (const d of detunes) {
+    for (const d of v.detunes) {
       const o = ctx.createOscillator();
-      o.type = 'sawtooth';
-      o.frequency.setValueAtTime(freq * h.mult * d, now);
+      o.type = v.wave;
+      o.frequency.setValueAtTime(freq * v.mult * d, now);
       o.connect(vg);
       o.start(now);
       o.stop(stop);
@@ -649,5 +644,5 @@ export function playPing(freq, velocity = 0.8) {
   }
 
   // Release the dry chain once the envelope is done — helps GC.
-  setTimeout(() => { try { env.disconnect(); filt.disconnect(); } catch (e) {} }, 2000);
+  setTimeout(() => { try { env.disconnect(); filt.disconnect(); } catch (e) {} }, 2200);
 }
