@@ -195,11 +195,10 @@ export default function HomePage() {
         {idx === 0 ? '← swipe or arrow keys →' : `${idx + 1} / ${SECTIONS.length}`}
       </p>
 
-      {/* Frequency-histogram footer — live FFT when audio is playing;
-          when silent, draws a spectrum keyed to the current section's
-          fundamental + harmonics so the footer always reflects where
-          you are in the journey. */}
-      <AudioHistogram note={sec.freq} />
+      {/* Live audio spectrum analyzer — pure FFT from whatever's
+          actually playing (drone / DAW / pings). Silent when nothing
+          plays. X = frequency, Y = magnitude, with peak-hold markers. */}
+      <AudioHistogram />
     </div>
   );
 }

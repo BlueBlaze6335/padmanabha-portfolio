@@ -535,9 +535,9 @@ export default function StudioPage() {
         8 / 9 · swipe or <Link href="/gallery" className="hover:text-[var(--gold)]">archive →</Link>
       </p>
 
-      {/* Frequency-histogram footer — live FFT of everything the DAW
-          and drone are producing. Idles to C3 when silent. */}
-      <AudioHistogram note={STUDIO_FREQ} />
+      {/* Live audio spectrum analyzer — pure FFT of everything the
+          DAW and drone produce. Silent when nothing plays. */}
+      <AudioHistogram />
     </div>
   );
 }
