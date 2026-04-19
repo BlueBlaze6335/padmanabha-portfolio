@@ -144,7 +144,10 @@ function ensureAmbientSource() {
     hp.Q.value = 0.5;
 
     const gain = ctx.createGain();
-    gain.gain.value = 0.002; // ~-54 dBFS pre-master, effectively inaudible
+    // Louder ambient so the spectrum bars actually rise to a visible
+    // height — still below perceptual threshold once the drone plays
+    // on top, but tall enough to dance on its own.
+    gain.gain.value = 0.012;
     _ambientGain = gain;
 
     src.connect(hp); hp.connect(lp); lp.connect(gain);

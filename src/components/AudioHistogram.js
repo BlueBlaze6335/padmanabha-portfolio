@@ -11,7 +11,7 @@ import { getAnalyser } from '@/lib/audio/engine';
 // - 72 thin bars on a log frequency curve (more bars in the bass)
 // - Peak-hold markers that linger above each bar and decay slowly
 // - Shades of gold on dark — cream tip → gold body → deep gold base
-export default function AudioHistogram({ height = 72, bars = 72 }) {
+export default function AudioHistogram({ height = 96, bars = 72 }) {
   const cvsRef = useRef(null);
   const frame = useRef(null);
   const smoothed = useRef(new Array(bars).fill(0));
@@ -91,7 +91,7 @@ export default function AudioHistogram({ height = 72, bars = 72 }) {
 
         // Dim gold ghost rail behind each bar so the row always has
         // visible structure even when all bars are silent.
-        ctx2d.fillStyle = 'rgba(212,172,84,0.04)';
+        ctx2d.fillStyle = 'rgba(212,172,84,0.12)';
         ctx2d.fillRect(x, 1, barW, h - 2);
 
         // Active bar gradient.
@@ -126,8 +126,14 @@ export default function AudioHistogram({ height = 72, bars = 72 }) {
     <canvas
       ref={cvsRef}
       aria-hidden="true"
-      className="fixed bottom-0 left-0 right-0 z-[5] pointer-events-none"
-      style={{ width: '100%', height }}
+      className="fixed left-0 right-0 z-[5] pointer-events-none"
+      style={{
+        width: '100%',
+        height,
+        // Sit above the iOS home indicator so the bars aren't masked
+        // by the phone's bottom safe area.
+        bottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
     />
   );
 }
