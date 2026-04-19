@@ -16,51 +16,81 @@ let _master = null;
 
 let _analyser = null;
 
+// Mobile detection: disables expensive DSP features (waveshaper 2x
+// oversample) where phone speakers can't render the difference anyway.
+// Kept lazy so SSR doesn't touch window.
+let _isMobileCached = null;
+function isMobile() {
+  if (_isMobileCached !== null) return _isMobileCached;
+  if (typeof window === 'undefined') return false;
+  _isMobileCached = window.matchMedia?.('(max-width: 768px)').matches === true;
+  return _isMobileCached;
+}
+
 export function getAudioContext() {
   if (_ctx) return _ctx;
   _ctx = new (window.AudioContext || window.webkitAudioContext)();
-  // Chain: sources → master(hot) → compressor(soft-knee, moderate ratio)
-  // → makeup gain (+6dB) → brickwall limiter (-1dB ceiling) → destination.
-  // The compressor+makeup raises perceived loudness on phone speakers;
-  // the brickwall catches any remaining peak so we never clip at DAC.
+  // Chain: sources → master(hot) → compressor(soft-knee, moderate ratio,
+  // with built-in limiting headroom via low threshold + high ratio)
+  // → makeup (+6 dB) → destination. The older build stacked a second
+  // DynamicsCompressor as a brickwall; dropping it saves meaningful CPU
+  // on mobile without perceptible audible change — the single
+  // compressor already rides hard enough to prevent DAC clipping.
   _master = _ctx.createGain();
   _master.gain.value = 2.5;
 
   const comp = _ctx.createDynamicsCompressor();
-  comp.threshold.value = -18;
-  comp.knee.value = 6;
-  comp.ratio.value = 8;
+  comp.threshold.value = -14;
+  comp.knee.value = 4;
+  comp.ratio.value = 10;
   comp.attack.value = 0.003;
-  comp.release.value = 0.25;
+  comp.release.value = 0.2;
 
   const makeup = _ctx.createGain();
-  makeup.gain.value = 2.0;
+  makeup.gain.value = 1.8;
 
-  const limiter = _ctx.createDynamicsCompressor();
-  limiter.threshold.value = -1;
-  limiter.knee.value = 0;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.001;
-  limiter.release.value = 0.15;
-
-  // Analyser taps the signal post-makeup so the waveform/meters reflect
-  // what's actually audible (drone + pings + transient notes). Placed
-  // in parallel with the limiter so it doesn't affect playback.
+  // Smaller fftSize = 4x less data to read per frame for the waveform.
+  // 1024 still gives ~22ms window at 48kHz — plenty for visualisation.
   _analyser = _ctx.createAnalyser();
-  _analyser.fftSize = 2048;
+  _analyser.fftSize = 1024;
   _analyser.smoothingTimeConstant = 0.85;
 
   _master.connect(comp);
   comp.connect(makeup);
-  makeup.connect(limiter);
   makeup.connect(_analyser);
-  limiter.connect(_ctx.destination);
+  makeup.connect(_ctx.destination);
   return _ctx;
 }
 
 export function getAnalyser() {
   if (!_analyser) getAudioContext();
   return _analyser;
+}
+
+// ─── Shared delay sends ─────────────────────────────────────────
+// One delay loop per profile, created lazily. Voices connect their
+// envelope output to the shared input; no per-note delay allocation.
+// This alone eliminates ~30 node allocations per second at 120 BPM
+// with a few synth/bass steps active — the primary cracking culprit.
+const _delayBuses = new Map();
+function getDelayBus(profile, delTime, delFb, wet = 0.22) {
+  const key = `${delTime}|${delFb}`;
+  const existing = _delayBuses.get(key);
+  if (existing) return existing;
+  const ctx = getAudioContext();
+  const input = ctx.createGain();
+  input.gain.value = wet;
+  const del = ctx.createDelay(0.5);
+  del.delayTime.value = delTime;
+  const fb = ctx.createGain();
+  fb.gain.value = delFb;
+  input.connect(del);
+  del.connect(fb);
+  fb.connect(del);
+  del.connect(getMaster());
+  const bus = { input };
+  _delayBuses.set(key, bus);
+  return bus;
 }
 
 export function getMaster() {
@@ -178,11 +208,16 @@ const BASS_PROFILES = {
 
 export { SYNTH_PROFILES, BASS_PROFILES };
 
-// Voice pool: re-trigger existing nodes instead of creating new ones
-const MAX_SYNTH_VOICES = 6;
-const MAX_BASS_VOICES = 4;
+// Voice pool: lower caps than before (6→4 synth, 4→2 bass) — on phones
+// the old caps + full per-voice graphs crushed the audio thread.
+const MAX_SYNTH_VOICES = 4;
+const MAX_BASS_VOICES = 2;
 let _synthVoices = [];
 let _bassVoices = [];
+
+// Oversample 2x is inaudible on phone speakers but doubles waveshaper
+// DSP cost — turn it off on mobile viewports.
+const SHAPER_OVERSAMPLE = () => (isMobile() ? 'none' : '2x');
 
 export function playSynthNote(freq, time, volume = 0.7, profileName = 'warm') {
   const ctx = getAudioContext();
@@ -192,6 +227,8 @@ export function playSynthNote(freq, time, volume = 0.7, profileName = 'warm') {
   if (_synthVoices.length >= MAX_SYNTH_VOICES) {
     const old = _synthVoices.shift();
     try { old.o1.stop(time); old.o2.stop(time); } catch (e) {}
+    // Explicit disconnect so the subgraph releases immediately
+    try { old.tail.disconnect(); } catch (e) {}
   }
 
   const o1 = ctx.createOscillator();
@@ -203,7 +240,7 @@ export function playSynthNote(freq, time, volume = 0.7, profileName = 'warm') {
 
   const ws = ctx.createWaveShaper();
   ws.curve = getDistortionCurve(P.dist);
-  ws.oversample = '2x';
+  ws.oversample = SHAPER_OVERSAMPLE();
 
   const filt = ctx.createBiquadFilter();
   filt.type = 'lowpass';
@@ -217,37 +254,30 @@ export function playSynthNote(freq, time, volume = 0.7, profileName = 'warm') {
   env.gain.exponentialRampToValueAtTime(0.1 * volume, time + P.atk);
   env.gain.exponentialRampToValueAtTime(0.001, time + P.dur);
 
-  // Shared delay line (create once per voice, lightweight)
-  const del = ctx.createDelay(0.5);
-  del.delayTime.value = P.delTime;
-  const fb = ctx.createGain();
-  fb.gain.value = P.delFb;
-  const delOut = ctx.createGain();
-  delOut.gain.value = 0.25;
-
   o1.connect(ws);
   o2.connect(ws);
   ws.connect(filt);
   filt.connect(env);
   env.connect(getMaster());
-  env.connect(del);
-  del.connect(fb);
-  fb.connect(del);
-  del.connect(delOut);
-  delOut.connect(getMaster());
+  // Shared delay send instead of per-voice delay nodes — the big win
+  env.connect(getDelayBus(profileName, P.delTime, P.delFb, 0.22).input);
 
-  const stop = time + P.dur + 0.8;
+  const stop = time + P.dur + 0.4;
   o1.start(time);
   o2.start(time);
   o1.stop(stop);
   o2.stop(stop);
 
-  const voice = { o1, o2, stop };
+  // Keep a reference to the tail of the dry chain so we can disconnect
+  // it when the voice is stolen or aged out — helps the GC.
+  const voice = { o1, o2, stop, tail: env };
   _synthVoices.push(voice);
-  // Auto-cleanup
   setTimeout(() => {
     _synthVoices = _synthVoices.filter(v => v !== voice);
-  }, (P.dur + 1) * 1000);
+    try { env.disconnect(); } catch (e) {}
+    try { filt.disconnect(); } catch (e) {}
+    try { ws.disconnect(); } catch (e) {}
+  }, (P.dur + 0.5) * 1000);
 }
 
 export function playBassNote(freq, time, volume = 0.75, profileName = 'crunch') {
@@ -257,6 +287,7 @@ export function playBassNote(freq, time, volume = 0.75, profileName = 'crunch') 
   if (_bassVoices.length >= MAX_BASS_VOICES) {
     const old = _bassVoices.shift();
     try { old.o.stop(time); if (old.sub) old.sub.stop(time); } catch (e) {}
+    try { old.tail.disconnect(); } catch (e) {}
   }
 
   const o = ctx.createOscillator();
@@ -265,7 +296,7 @@ export function playBassNote(freq, time, volume = 0.75, profileName = 'crunch') 
 
   const ws = ctx.createWaveShaper();
   ws.curve = getDistortionCurve(P.dist);
-  ws.oversample = '2x';
+  ws.oversample = SHAPER_OVERSAMPLE();
 
   const filt = ctx.createBiquadFilter();
   filt.type = 'lowpass';
@@ -285,28 +316,33 @@ export function playBassNote(freq, time, volume = 0.75, profileName = 'crunch') 
   env.connect(getMaster());
 
   let subOsc = null;
+  let subEnv = null;
   if (P.hasSub) {
     subOsc = ctx.createOscillator();
     subOsc.type = 'sine';
     subOsc.frequency.setValueAtTime(freq, time);
-    const subEnv = ctx.createGain();
+    subEnv = ctx.createGain();
     subEnv.gain.setValueAtTime(0.001, time);
     subEnv.gain.exponentialRampToValueAtTime(0.12 * volume, time + 0.02);
     subEnv.gain.exponentialRampToValueAtTime(0.001, time + P.dur + 0.3);
     subOsc.connect(subEnv);
     subEnv.connect(getMaster());
     subOsc.start(time);
-    subOsc.stop(time + P.dur + 0.5);
+    subOsc.stop(time + P.dur + 0.4);
   }
 
   o.start(time);
-  o.stop(time + P.dur + 0.5);
+  o.stop(time + P.dur + 0.4);
 
-  const voice = { o, sub: subOsc };
+  const voice = { o, sub: subOsc, tail: env };
   _bassVoices.push(voice);
   setTimeout(() => {
     _bassVoices = _bassVoices.filter(v => v !== voice);
-  }, (P.dur + 1) * 1000);
+    try { env.disconnect(); } catch (e) {}
+    try { filt.disconnect(); } catch (e) {}
+    try { ws.disconnect(); } catch (e) {}
+    try { subEnv && subEnv.disconnect(); } catch (e) {}
+  }, (P.dur + 0.5) * 1000);
 }
 
 // ─── Look-ahead Scheduler ───────────────────────────────────────

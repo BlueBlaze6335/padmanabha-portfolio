@@ -115,14 +115,27 @@ export default function HomePage() {
   // Waveform canvas — fed by the live AnalyserNode when audio is on, so
   // what you see IS what's playing. The visual is literally signal in noise:
   // the drone is the noise floor, pings and transitions are the peaks.
+  //
+  // Throttled to ~30 Hz + disabled when prefers-reduced-motion — halves
+  // main-thread work vs. 60 Hz RAF, keeps the audio thread fed when the
+  // DAW is running many voices.
   useEffect(() => {
     const cvs = waveRef.current;
     if (!cvs) return;
     const ctx = cvs.getContext('2d');
     const analyser = audioOn ? getAnalyser() : null;
     const buf = analyser ? new Uint8Array(analyser.fftSize) : null;
+    const reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    let lastDrawAt = 0;
+    const minFrameMs = 33; // ~30 Hz
 
-    const draw = () => {
+    const draw = (now) => {
+      if (now - lastDrawAt < minFrameMs) {
+        waveAnim.current = requestAnimationFrame(draw);
+        return;
+      }
+      lastDrawAt = now;
       const dpr = window.devicePixelRatio || 1;
       const w = cvs.clientWidth;
       const h = cvs.clientHeight;
@@ -162,9 +175,14 @@ export default function HomePage() {
         }
         ctx.stroke(); ctx.globalAlpha = 1;
       }
-      waveAnim.current = requestAnimationFrame(draw);
+      if (!reducedMotion) waveAnim.current = requestAnimationFrame(draw);
     };
-    draw();
+    if (reducedMotion) {
+      // One static frame, no animation.
+      draw(performance.now());
+    } else {
+      waveAnim.current = requestAnimationFrame(draw);
+    }
     return () => cancelAnimationFrame(waveAnim.current);
   }, [audioOn]);
 
@@ -218,7 +236,7 @@ export default function HomePage() {
       )}
 
       {/* Sacred symbol */}
-      <div className="flex justify-center pt-8 relative z-10">
+      <div className="flex justify-center pt-8 lg:pt-14 relative z-10">
         <SacredSymbol id={sec.id} className="w-[130px] h-[130px]" />
       </div>
 
@@ -241,7 +259,7 @@ export default function HomePage() {
       </p>
 
       {/* Content */}
-      <div className={`relative z-10 mt-6 pb-28 transition-all duration-200 ${fading ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}`}>
+      <div className={`relative z-10 mt-6 lg:mt-10 pb-28 transition-all duration-200 ${fading ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}`}>
         {renderContent()}
       </div>
 

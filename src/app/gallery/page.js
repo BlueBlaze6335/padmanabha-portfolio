@@ -113,7 +113,7 @@ export default function GalleryPage() {
       <button onClick={() => router.push('/studio')} className="nav-arrow" style={{ left: '12px' }}>‹</button>
 
       {/* Sacred symbol — journey size */}
-      <div className="flex justify-center pt-8 relative z-10">
+      <div className="flex justify-center pt-8 lg:pt-14 relative z-10">
         <SacredSymbol id="signal" className="w-[130px] h-[130px]" />
       </div>
 
@@ -139,7 +139,7 @@ export default function GalleryPage() {
         </span>
       </div>
 
-      <div className="relative z-10 mt-6 pb-28 px-4 max-w-xl mx-auto">
+      <div className="relative z-10 mt-6 lg:mt-10 pb-28 px-4 max-w-xl mx-auto">
 
       {compositions.length === 0 ? (
         <p className="text-center font-body text-cream-dim py-12">No signals yet. Be the first.</p>

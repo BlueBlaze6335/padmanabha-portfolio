@@ -103,15 +103,25 @@ export default function StudioPage() {
     else { resumeAudio(); startDrone(7); setAudioOn(true); }
   };
 
-  // Waveform canvas — live analyser feed so the DAW's beats are visible
-  // in the wave while you're programming them.
+  // Waveform canvas — throttled to ~30 Hz and disabled when
+  // prefers-reduced-motion is set. Keeps canvas off the audio thread's
+  // tick budget while the DAW is hammering voices.
   useEffect(() => {
     const cvs = waveRef.current;
     if (!cvs) return;
     const ctx = cvs.getContext('2d');
     const analyser = getAnalyser();
     const buf = new Uint8Array(analyser.fftSize);
-    const draw = () => {
+    const reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    let lastDrawAt = 0;
+    const minFrameMs = 33;
+    const draw = (now) => {
+      if (now - lastDrawAt < minFrameMs) {
+        if (!reducedMotion) waveAnim.current = requestAnimationFrame(draw);
+        return;
+      }
+      lastDrawAt = now;
       const dpr = window.devicePixelRatio || 1;
       const w = cvs.clientWidth;
       const h = cvs.clientHeight;
@@ -134,9 +144,10 @@ export default function StudioPage() {
         x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       ctx.stroke(); ctx.globalAlpha = 1;
-      waveAnim.current = requestAnimationFrame(draw);
+      if (!reducedMotion) waveAnim.current = requestAnimationFrame(draw);
     };
-    draw();
+    if (reducedMotion) draw(performance.now());
+    else waveAnim.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(waveAnim.current);
   }, []);
 
@@ -336,7 +347,7 @@ export default function StudioPage() {
       <button onClick={() => router.push('/gallery')} className="nav-arrow" style={{ right: '12px' }}>›</button>
 
       {/* Sacred symbol — journey size */}
-      <div className="flex justify-center pt-8 relative z-10">
+      <div className="flex justify-center pt-8 lg:pt-14 relative z-10">
         <SacredSymbol id="signal" className="w-[130px] h-[130px]" />
       </div>
 
@@ -360,11 +371,11 @@ export default function StudioPage() {
         Make something
       </p>
 
-      <div className="relative z-10 mt-6 pb-28 px-3 max-w-2xl mx-auto">
+      <div className="relative z-10 mt-6 lg:mt-10 pb-28 px-3 max-w-2xl mx-auto">
 
       {/* Transport — buttons + BPM split into two rows so the slider
           has room to breathe on narrow phones. */}
-      <div className="mb-3 p-2 bg-surface rounded-lg border border-cream-ghost">
+      <div className="surface mb-3 p-2">
         <div className="flex items-center gap-2 mb-2">
           <button onClick={handlePlay} className={`font-mono text-[10px] tracking-wider uppercase px-4 py-2 rounded border transition-all ${playing ? 'text-[var(--gold)] border-[var(--gold-dim)] bg-[var(--gold-ghost)]' : 'text-cream border-cream-ghost'}`}>Play</button>
           <button onClick={handleStop} className="font-mono text-[10px] tracking-wider uppercase px-4 py-2 rounded border border-cream-ghost text-cream">Stop</button>
@@ -429,7 +440,7 @@ export default function StudioPage() {
       </div>
 
       {/* Mix — pad toggle above, four faders in a row with room to drag. */}
-      <div className="mt-3 p-3 bg-surface rounded-lg border border-cream-ghost">
+      <div className="surface mt-3 p-3">
         <div className="flex items-center justify-between mb-3">
           <span className="font-mono text-[9px] text-cream-dim/50 tracking-[3px] uppercase">Mix</span>
           <button onClick={handlePad} className="flex items-center gap-1.5">
@@ -476,7 +487,7 @@ export default function StudioPage() {
 
       {/* Or just say hi — low-friction message form for visitors who
           don't want to make music. Persists to KV at /api/messages. */}
-      <div className="mt-6 p-4 rounded-lg border border-cream-ghost bg-surface">
+      <div className="surface mt-6 p-4">
         <p className="font-mono text-[9px] text-cream-dim/60 tracking-[4px] uppercase mb-1">Or just say hi</p>
         <p className="font-body text-[12px] text-cream-dim/60 leading-[1.6] mb-3">
           Not in the mood to jam? Send a note instead — a thought, a question, a reason you're here.

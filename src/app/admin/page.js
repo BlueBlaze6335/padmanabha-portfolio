@@ -47,7 +47,7 @@ export default function AdminPage() {
         <AdminCard title="Compositions" desc="Visitor compositions are stored via API. View at /gallery" />
       </div>
 
-      <div className="mt-8 p-4 rounded-lg border border-cream-ghost bg-surface">
+      <div className="surface mt-8 p-4">
         <p className="font-mono text-[9px] text-cream-dim tracking-wider uppercase mb-2">How to update content</p>
         <ol className="font-body text-[13px] text-cream-dim leading-relaxed list-decimal list-inside space-y-1">
           <li>Edit the relevant JSON or markdown file in your repo</li>
@@ -69,7 +69,7 @@ export default function AdminPage() {
 
 function AdminCard({ title, desc }) {
   return (
-    <div className="p-4 rounded-lg border border-cream-ghost bg-surface">
+    <div className="surface p-4">
       <h3 className="font-body text-lg text-cream mb-1">{title}</h3>
       <p className="font-body text-[13px] text-cream-dim leading-relaxed">{desc}</p>
     </div>

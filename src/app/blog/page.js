@@ -8,7 +8,7 @@ export default function BlogPage() {
   const posts = getBlogPosts();
   return (
     <div className="min-h-screen relative">
-      <div className="flex justify-center pt-8 relative z-10">
+      <div className="flex justify-center pt-8 lg:pt-14 relative z-10">
         <SacredSymbol id="wavelength" className="w-[110px] h-[110px]" />
       </div>
       <h1 className="section-title text-center mt-4">Wavelength</h1>

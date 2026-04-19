@@ -13,7 +13,7 @@ export function Origin() {
       <p className="font-mono text-[9px] tracking-[5px] uppercase text-cream-dim/40 mb-4">
         AI/ML Researcher · Builder · Musician
       </p>
-      <h1 className="font-body text-[clamp(48px,9vw,80px)] font-normal text-cream tracking-[-2px] leading-none mb-2">
+      <h1 className="font-body text-[clamp(48px,9vw,80px)] font-normal text-cream tracking-[-0.01em] leading-[1.02] mb-2">
         Padmanabha
       </h1>
       <p className="font-body text-[clamp(14px,2.5vw,18px)] text-cream-dim/50 italic mb-3">
@@ -172,7 +172,7 @@ export function Resonance({ onPing }) {
             ))}
           </div>
         ) : (
-          <div className="p-4 rounded-lg border border-cream-ghost bg-surface">
+          <div className="surface p-4">
             <p className="font-body text-[13px] text-cream-dim/70 leading-[1.7]">
               Papers that shaped my thinking — curated slowly, linked out when something hits. Coming soon.
             </p>

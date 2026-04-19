@@ -4,8 +4,11 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0d0e1a;
-  --surface: #13142a;
+  /* Bronze-leaning dark so the palette reads as candlelit rather than
+     LCD-blue. Same perceptual value as the old navy-black; warmer cast
+     that pairs with the gold/cream typography. */
+  --bg: #0f0c08;
+  --surface: #181308;
   --gold: #d4ac54;
   --gold-dim: rgba(212,172,84,0.4);
   --gold-ghost: rgba(212,172,84,0.08);
@@ -14,6 +17,18 @@
   --cream-soft: #c9c2ae;
   --cream-dim: #8a8474;
   --cream-ghost: rgba(138,132,116,0.15);
+}
+
+/* Honor visitors who ask for less motion — kills fade/scale/slide
+   transitions site-wide. The waveform canvases also check this and
+   render a single static frame. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 html { scroll-behavior: smooth; }
