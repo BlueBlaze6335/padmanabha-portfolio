@@ -368,15 +368,18 @@ export default function StudioPage() {
 
       <div className="relative z-10 mt-6 pb-28 px-3 max-w-2xl mx-auto">
 
-      {/* Transport */}
-      <div className="flex items-center gap-2 mb-3 p-2 bg-surface rounded-lg border border-cream-ghost flex-wrap">
-        <button onClick={handlePlay} className={`font-mono text-[10px] tracking-wider uppercase px-3 py-1.5 rounded border transition-all ${playing ? 'text-[var(--gold)] border-[var(--gold-dim)] bg-[var(--gold-ghost)]' : 'text-cream border-cream-ghost'}`}>Play</button>
-        <button onClick={handleStop} className="font-mono text-[10px] tracking-wider uppercase px-3 py-1.5 rounded border border-cream-ghost text-cream">Stop</button>
-        <button onClick={handleClear} className="font-mono text-[10px] tracking-wider uppercase px-3 py-1.5 rounded border border-cream-ghost text-cream">Clear</button>
-        <div className="flex items-center gap-1 ml-auto">
-          <span className="font-mono text-[9px] text-cream-dim tracking-wider">BPM</span>
-          <input type="range" min="60" max="180" value={bpm} step="1" onChange={(e) => handleBpm(+e.target.value)} className="w-16 accent-[var(--gold)]" />
-          <span className="font-mono text-[11px] text-[var(--gold)] min-w-[28px]">{bpm}</span>
+      {/* Transport — buttons + BPM split into two rows so the slider
+          has room to breathe on narrow phones. */}
+      <div className="mb-3 p-2 bg-surface rounded-lg border border-cream-ghost">
+        <div className="flex items-center gap-2 mb-2">
+          <button onClick={handlePlay} className={`font-mono text-[10px] tracking-wider uppercase px-4 py-2 rounded border transition-all ${playing ? 'text-[var(--gold)] border-[var(--gold-dim)] bg-[var(--gold-ghost)]' : 'text-cream border-cream-ghost'}`}>Play</button>
+          <button onClick={handleStop} className="font-mono text-[10px] tracking-wider uppercase px-4 py-2 rounded border border-cream-ghost text-cream">Stop</button>
+          <button onClick={handleClear} className="font-mono text-[10px] tracking-wider uppercase px-4 py-2 rounded border border-cream-ghost text-cream">Clear</button>
+        </div>
+        <div className="flex items-center gap-3 px-1">
+          <span className="font-mono text-[9px] text-cream-dim tracking-[3px] uppercase shrink-0">BPM</span>
+          <input type="range" min="60" max="180" value={bpm} step="1" onChange={(e) => handleBpm(+e.target.value)} className="slider flex-1 min-w-0" />
+          <span className="font-mono text-[13px] text-[var(--gold)] min-w-[32px] text-right tabular-nums">{bpm}</span>
         </div>
       </div>
 
@@ -431,24 +434,30 @@ export default function StudioPage() {
         {renderGrid()}
       </div>
 
-      {/* Bottom bar — pad + faders */}
-      <div className="flex items-center gap-3 mt-3 p-2 bg-surface rounded-lg border border-cream-ghost flex-wrap">
-        <button onClick={handlePad} className="flex items-center gap-1.5">
-          <div className={`w-2.5 h-2.5 rounded-full border transition-all ${padActive ? 'bg-[var(--gold)] border-[var(--gold)] shadow-[0_0_8px_var(--gold-dim)]' : 'border-cream-ghost'}`} />
-          <span className="font-mono text-[10px] text-cream-soft tracking-wider">PAD</span>
-        </button>
-        <div className="flex gap-2 ml-auto">
+      {/* Mix — pad toggle above, four faders in a row with room to drag. */}
+      <div className="mt-3 p-3 bg-surface rounded-lg border border-cream-ghost">
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-[9px] text-cream-dim/50 tracking-[3px] uppercase">Mix</span>
+          <button onClick={handlePad} className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded-full border transition-all ${padActive ? 'bg-[var(--gold)] border-[var(--gold)] shadow-[0_0_10px_var(--gold-dim)]' : 'border-cream-ghost'}`} />
+            <span className="font-mono text-[10px] text-cream-soft tracking-wider">PAD</span>
+          </button>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
           {[
-            { key: 'dr', label: 'DRM' },
-            { key: 'sy', label: 'SYN' },
-            { key: 'ba', label: 'BAS' },
+            { key: 'dr', label: 'DRUMS' },
+            { key: 'sy', label: 'SYNTH' },
+            { key: 'ba', label: 'BASS' },
             { key: 'pd', label: 'PAD' },
           ].map(f => (
-            <div key={f.key} className="flex flex-col items-center gap-0.5">
+            <div key={f.key} className="flex flex-col items-center gap-1.5 min-w-0">
               <input type="range" min="0" max="100" value={volumes[f.key]} step="1"
                 onChange={(e) => setVolumes(prev => ({ ...prev, [f.key]: +e.target.value }))}
-                className="w-11 accent-[var(--gold)]" />
-              <span className="font-mono text-[8px] text-cream-dim/40 tracking-wider">{f.label}</span>
+                className="slider w-full" />
+              <div className="flex flex-col items-center gap-0">
+                <span className="font-mono text-[10px] text-[var(--gold)]/70 tabular-nums">{volumes[f.key]}</span>
+                <span className="font-mono text-[8px] text-cream-dim/40 tracking-[2px] uppercase">{f.label}</span>
+              </div>
             </div>
           ))}
         </div>

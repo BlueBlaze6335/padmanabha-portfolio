@@ -55,3 +55,10 @@ body { background: var(--bg); color: var(--cream); font-family: Georgia, serif; 
 .cell-crash { background: rgba(212,172,84,0.55); border: 1px solid var(--gold); box-shadow: inset 0 0 0 1px rgba(237,232,218,0.2); } /* ringed gold */
 .cell-synth { background: #d4ac54; border-color: rgba(212,172,84,0.6); }
 .cell-bass  { background: #6b5a24; border-color: rgba(107,90,36,0.7); }       /* darker gold for low-end */
+
+/* Studio sliders — bigger touch targets, gold thumb, track in surface-gold */
+.slider { -webkit-appearance: none; appearance: none; height: 4px; background: rgba(212,172,84,0.15); border-radius: 999px; outline: none; }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--gold); border: 1px solid rgba(237,232,218,0.4); cursor: pointer; box-shadow: 0 0 0 3px rgba(212,172,84,0.08); }
+.slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--gold); border: 1px solid rgba(237,232,218,0.4); cursor: pointer; box-shadow: 0 0 0 3px rgba(212,172,84,0.08); }
+.slider:active::-webkit-slider-thumb { background: #ede8da; }
+.slider:active::-moz-range-thumb { background: #ede8da; }

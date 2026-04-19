@@ -16,7 +16,7 @@ export default function BlogPage() {
 
       <div className="px-4 py-6 max-w-xl mx-auto">
         <div className="flex justify-center mb-6">
-          <Link href="/" className="font-mono text-[9px] text-cream-dim/40 tracking-wider hover:text-[var(--gold)] transition-colors">← Back to journey</Link>
+          <Link href="/?s=6" className="font-mono text-[10px] text-cream-dim/60 tracking-wider uppercase hover:text-[var(--gold)] transition-colors">← Back to journey</Link>
         </div>
         {posts.map(post => (
           <Link key={post.slug} href={`/blog/${post.slug}`} className="block py-5 border-b border-cream-ghost hover:pl-2 transition-all group">
