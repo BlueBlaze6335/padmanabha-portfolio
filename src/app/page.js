@@ -178,7 +178,7 @@ export default function HomePage() {
       </div>
 
       {/* Section subtitle */}
-      <p className="text-center mt-2 font-mono text-[9px] tracking-[5px] text-cream-dim uppercase relative z-10">
+      <p className="sub-label text-center mt-2 relative z-10">
         {sec.sub}
       </p>
 
@@ -192,9 +192,11 @@ export default function HomePage() {
         {idx === 0 ? '← swipe or arrow keys →' : `${idx + 1} / ${SECTIONS.length}`}
       </p>
 
-      {/* Frequency-histogram footer — gold bars pulse from real audio
-          when the drone is on, breathe gently when it's off. */}
-      <AudioHistogram active={audioOn} />
+      {/* Frequency-histogram footer — live FFT when audio is playing;
+          when silent, draws a spectrum keyed to the current section's
+          fundamental + harmonics so the footer always reflects where
+          you are in the journey. */}
+      <AudioHistogram note={sec.freq} />
     </div>
   );
 }

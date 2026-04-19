@@ -10,13 +10,20 @@ import galleryItems from '../../../content/gallery/items.json';
 export function Origin() {
   return (
     <div className="text-center px-4 max-w-xl mx-auto">
+      {/*
+        Golden-ratio type scale (φ ≈ 1.618). From the H1 as anchor:
+          H1 ≈ 50 → tagline ≈ 50/φ ≈ 31 (too heavy for a tagline, so we
+          skip a step and drop to ≈ 18 = 50/φ²). Body ≈ 15 sits between
+          φ² and φ³ of the 9 px mono. The ladder is 9 · 15 · 18 · 31 · 50
+          — proportional rather than arbitrary.
+      */}
       <p className="font-mono text-[9px] tracking-[5px] uppercase text-cream-dim/40 mb-4">
         AI/ML Researcher · Builder · Musician
       </p>
-      <h1 className="font-body text-[clamp(48px,9vw,80px)] font-normal text-cream tracking-[-0.01em] leading-[1.02] mb-2">
+      <h1 className="font-body text-[clamp(36px,7vw,50px)] font-normal text-cream tracking-[-0.01em] leading-[1.08] mb-2">
         Padmanabha
       </h1>
-      <p className="font-body text-[clamp(14px,2.5vw,18px)] text-cream-dim/50 italic mb-3">
+      <p className="font-body text-[clamp(14px,2.2vw,18px)] text-cream-dim/50 italic mb-3">
         Signal in the noise
       </p>
       <div className="inline-flex items-center gap-2 mb-7 font-mono text-[9px] tracking-[4px] uppercase text-[var(--gold)]/60">
@@ -24,17 +31,17 @@ export function Origin() {
         <span>High SNR</span>
         <span className="h-px w-6 bg-[var(--gold)]/30" />
       </div>
-      <p className="font-body text-[15px] text-cream-soft leading-[1.9] mb-4 max-w-[460px] mx-auto">
+      <p className="font-body text-[15px] text-cream-soft leading-[1.85] mb-4 max-w-[440px] mx-auto">
         I build systems that perceive, understand, and generate — voice, video, language, music.
         When I'm not writing code, I'm behind a drum kit, mixing psytrance, painting, or building FPV drones.
       </p>
-      <p className="font-body text-[13px] text-cream-dim leading-[1.85] max-w-[440px] mx-auto mb-4">
+      <p className="font-body text-[13px] text-cream-dim leading-[1.8] max-w-[420px] mx-auto mb-4">
         Bengali. Tabla player since childhood. Prog rock kid turned researcher.
         Impressionism over abstraction. Bonham over technique.
         Four papers in speech and signal processing. Six deployed systems,
         and a persistent need to build things from scratch.
       </p>
-      <p className="font-body text-[11px] text-cream-dim/30 max-w-[380px] mx-auto leading-[1.7]">
+      <p className="font-body text-[11px] text-cream-dim/30 max-w-[360px] mx-auto leading-[1.7]">
         B.Tech ECE · TOEFL 113/120 · NVIDIA Hackathon Finalist ·
         College band vocalist & drummer · Classically trained percussionist
       </p>

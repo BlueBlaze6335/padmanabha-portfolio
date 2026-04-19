@@ -317,7 +317,7 @@ export default function StudioPage() {
 
       {/* Section title + subtitle */}
       <h1 className="section-title text-center mt-4 relative z-10">Send a Signal</h1>
-      <p className="text-center mt-2 font-mono text-[9px] tracking-[5px] text-cream-dim uppercase relative z-10">
+      <p className="sub-label text-center mt-2 relative z-10">
         Make something
       </p>
 
@@ -489,8 +489,9 @@ export default function StudioPage() {
         8 / 9 · swipe or <Link href="/gallery" className="hover:text-[var(--gold)]">archive →</Link>
       </p>
 
-      {/* Frequency-histogram footer — same as the journey pages. */}
-      <AudioHistogram active={audioOn} />
+      {/* Frequency-histogram footer — live FFT of everything the DAW
+          and drone are producing. Idles to C3 when silent. */}
+      <AudioHistogram note={STUDIO_FREQ} />
     </div>
   );
 }

@@ -130,7 +130,7 @@ export default function GalleryPage() {
       </div>
 
       <h1 className="section-title text-center mt-4 relative z-10">Signal Archive</h1>
-      <p className="text-center mt-2 font-mono text-[9px] tracking-[5px] text-cream-dim uppercase relative z-10">
+      <p className="sub-label text-center mt-2 relative z-10">
         What visitors left behind
       </p>
       <div className="flex justify-center mt-3 relative z-10">

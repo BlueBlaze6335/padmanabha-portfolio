@@ -569,51 +569,77 @@ export function playTransitionNote(freq) {
 }
 
 // ─── Interaction Ping (for button clicks in sections) ───────────
-// Percussive click for interactive elements. The input `freq` is the
-// section's parent note (C2-C3 = 65-130 Hz) — too low for phone
-// speakers which roll off below ~200 Hz. We transpose the fundamental
-// up 2 octaves so the ping actually lives in the 260-520 Hz band where
-// phone drivers respond, while still harmonically belonging to the
-// section it's rooted in.
+// Immersive synth pad for interactive elements — not a game beep.
 //
-// Shape: two triangles + a tiny filtered-noise transient for the
-// "click" character on top of the tonal body. 3 ms attack, 200 ms tail.
-export function playPing(freq, velocity = 1.0) {
+// Sound design: a 3-voice chord (root + perfect 5th + octave) plus a
+// sub-octave for body, each voice built from two slightly detuned
+// sawtooths for the super-saw shimmer. A single lowpass filter sweeps
+// from bright → dark over the 0.55 s tail so the hit feels like a pad
+// note rather than a bell. Soft 25 ms attack, exponential decay.
+//
+// The input `freq` is the section's parent note (C2–C3, 65–130 Hz).
+// Transposed up 2 octaves so the fundamental lands at 260–520 Hz where
+// phone speakers actually reproduce it. The chromatic progression that
+// handlePing drives (one semitone per index) is preserved at the root;
+// the 5th + octave voices shift in parallel so each click reads as a
+// chord and successive clicks trace a chromatic harmonic line.
+export function playPing(freq, velocity = 0.85) {
   const ctx = resumeAudio();
   const now = ctx.currentTime;
   const master = getMaster();
-  const f = freq * 4; // up 2 octaves
+  const f0 = freq * 4; // up 2 octaves into phone-speaker range
 
-  const voice = (hz, peak, tail) => {
-    const o = ctx.createOscillator();
-    o.type = 'triangle';
-    o.frequency.setValueAtTime(hz, now);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(peak * velocity, now + 0.003);
-    g.gain.exponentialRampToValueAtTime(0.001, now + tail);
-    o.connect(g);
-    g.connect(master);
-    o.start(now);
-    o.stop(now + tail + 0.02);
-  };
+  // Shared filter + envelope feed the whole chord so node count per
+  // click stays bounded (important with many successive clicks).
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.Q.value = 3;
+  filt.frequency.setValueAtTime(f0 * 8, now);
+  filt.frequency.exponentialRampToValueAtTime(f0 * 2, now + 0.8);
 
-  voice(f,     0.9, 0.22); // fundamental — loud
-  voice(f * 2, 0.4, 0.12); // octave — bright transient
-  voice(f * 3, 0.15, 0.08); // fifth above octave — glint
+  // Peak ~0.42 — deliberately sits ~2× louder than the drone level,
+  // so the click layer cuts through without stopping the drone from
+  // being present underneath. Attack is soft enough to sound pad-like
+  // (15 ms) but fast enough to feel responsive. Tail rings for ~0.8 s
+  // which reads as "a chord was struck" rather than a tap.
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, now);
+  env.gain.linearRampToValueAtTime(0.42 * velocity, now + 0.015);
+  env.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
 
-  // Tiny filtered-noise burst for the "tap" attack
-  const bufLen = Math.floor(ctx.sampleRate * 0.01); // 10 ms
-  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  const hp = ctx.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = Math.min(3000, f * 4);
-  const ng = ctx.createGain();
-  ng.gain.value = 0.3 * velocity;
-  src.connect(hp); hp.connect(ng); ng.connect(master);
-  src.start(now);
+  filt.connect(env);
+  env.connect(master);
+
+  // The chord: root, perfect 5th (2^(7/12)), octave, and a sub-octave
+  // for warmth. Amps picked so the root dominates and harmonics
+  // support rather than compete.
+  const chord = [
+    { hz: f0,             amp: 0.55 }, // root
+    { hz: f0 * 1.49831,   amp: 0.28 }, // perfect 5th
+    { hz: f0 * 2.0,       amp: 0.30 }, // octave
+    { hz: f0 * 0.5,       amp: 0.22 }, // sub-octave
+  ];
+
+  const stop = now + 0.82;
+  for (const v of chord) {
+    // Two detuned sawtooths per voice (± 4 cents) — super-saw lite.
+    const o1 = ctx.createOscillator();
+    const o2 = ctx.createOscillator();
+    o1.type = 'sawtooth';
+    o2.type = 'sawtooth';
+    o1.frequency.setValueAtTime(v.hz * 0.99769, now); // -4 cents
+    o2.frequency.setValueAtTime(v.hz * 1.00231, now); // +4 cents
+    const vg = ctx.createGain();
+    vg.gain.value = v.amp;
+    o1.connect(vg);
+    o2.connect(vg);
+    vg.connect(filt);
+    o1.start(now);
+    o2.start(now);
+    o1.stop(stop);
+    o2.stop(stop);
+  }
+
+  // Release the dry chain once the envelope is done — helps GC.
+  setTimeout(() => { try { env.disconnect(); filt.disconnect(); } catch (e) {} }, 900);
 }

@@ -1,15 +1,19 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { getAnalyser } from '@/lib/audio/engine';
+import { getAnalyser, getAudioContext } from '@/lib/audio/engine';
 
-// Frequency-domain histogram footer. ~44 bars across the width, each
-// rendered as a vertical gold bar over a dim gold "ghost" track.
-// Active state reads from the live AnalyserNode; idle state draws a
-// slow breathing band so the strip never looks dead.
+// Real-time spectrum analyser footer: X = frequency, Y = magnitude.
+// Shades of black and gold only.
 //
-// Palette: shades of black + gold only. Taller bar = brighter gold.
-export default function AudioHistogram({ active = false, height = 72, bars = 44 }) {
+// Two modes, auto-switched by signal energy:
+// 1) WHEN ANYTHING IS PLAYING (drone / DAW / pings) — draws the live
+//    FFT from the AnalyserNode. What you see is what's playing.
+// 2) WHEN SILENT — draws a synthetic spectrum keyed to `note` (the
+//    section's parent frequency): a fundamental peak plus harmonics.
+//    So Origin (C2) idles with a low-left peak, Studio (C3) peaks
+//    slightly rightward. Gentle shimmer so it never feels static.
+export default function AudioHistogram({ note = 130.81, height = 72, bars = 44 }) {
   const cvsRef = useRef(null);
   const frame = useRef(null);
   const smoothed = useRef(new Array(bars).fill(0));
@@ -17,34 +21,60 @@ export default function AudioHistogram({ active = false, height = 72, bars = 44 
   useEffect(() => {
     const cvs = cvsRef.current;
     if (!cvs) return;
-    const ctx = cvs.getContext('2d');
+    const ctx2d = cvs.getContext('2d');
     const reducedMotion = typeof window !== 'undefined'
       && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const analyser = active ? getAnalyser() : null;
-    const buf = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
 
-    // Bar layout — computed once per resize. Each bar maps to a range
-    // of frequency bins using a mild log curve so bass bars are wider
-    // (more bins per bar) and treble bars are narrow. Matches how the
-    // ear perceives frequency content.
+    // Always tap the analyser. If the AudioContext doesn't exist yet,
+    // getAnalyser will create it in suspended state — analyser still
+    // returns zero bytes until the first user gesture, which flows
+    // naturally through our energy-threshold switch to the idle mode.
+    const analyser = getAnalyser();
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    const sampleRate = (() => {
+      try { return getAudioContext().sampleRate; } catch { return 48000; }
+    })();
+
+    // Map each bar to a range of frequency bins using a mild log curve
+    // so low frequencies get more bars — matches perception and puts
+    // the drone fundamentals (60–260 Hz) on the left third of the
+    // display instead of crammed into bin 1.
     const binRanges = [];
-    const buildBinRanges = () => {
-      binRanges.length = 0;
-      if (!analyser) return;
-      const total = analyser.frequencyBinCount;
-      // Log curve from bin 2 → bin ~512 (skip bin 0, the DC offset)
-      const minBin = 2;
-      const maxBin = Math.floor(total * 0.6); // ignore the very top end
-      for (let i = 0; i < bars; i++) {
-        const t0 = i / bars;
-        const t1 = (i + 1) / bars;
-        // pow(t, 1.8) pushes more bars into the lower-frequency range
-        const lo = Math.floor(minBin + (maxBin - minBin) * Math.pow(t0, 1.8));
-        const hi = Math.max(lo + 1, Math.floor(minBin + (maxBin - minBin) * Math.pow(t1, 1.8)));
-        binRanges.push([lo, hi]);
-      }
-    };
-    buildBinRanges();
+    const binCenterHz = [];
+    const minBin = 1;                                      // skip DC (bin 0)
+    const maxBin = Math.floor(analyser.frequencyBinCount * 0.55);
+    for (let i = 0; i < bars; i++) {
+      const t0 = i / bars;
+      const t1 = (i + 1) / bars;
+      const lo = Math.floor(minBin + (maxBin - minBin) * Math.pow(t0, 1.9));
+      const hi = Math.max(lo + 1, Math.floor(minBin + (maxBin - minBin) * Math.pow(t1, 1.9)));
+      binRanges.push([lo, hi]);
+      const centerBin = (lo + hi) / 2;
+      binCenterHz.push(centerBin * sampleRate / analyser.fftSize);
+    }
+
+    // Note profile: gaussian weights per bar around the fundamental,
+    // octave, perfect fifth, and fifth-above-octave. This is what the
+    // spectrum "would look like" when only the section's drone plays
+    // at a whisper — we use it as the idle baseline.
+    const noteProfile = (() => {
+      const peaks = [
+        { hz: note,           amp: 0.95 },
+        { hz: note * 2,       amp: 0.60 },
+        { hz: note * 1.49831, amp: 0.35 }, // perfect 5th
+        { hz: note * 3,       amp: 0.28 },
+        { hz: note * 4,       amp: 0.18 },
+      ];
+      return binCenterHz.map((cf) => {
+        let w = 0;
+        for (const p of peaks) {
+          const bandwidth = Math.max(18, p.hz * 0.18);
+          const d = (cf - p.hz) / bandwidth;
+          w = Math.max(w, p.amp * Math.exp(-d * d));
+        }
+        return w;
+      });
+    })();
 
     let lastDrawAt = 0;
     const minFrameMs = 33; // ~30 Hz
@@ -60,71 +90,64 @@ export default function AudioHistogram({ active = false, height = 72, bars = 44 
       const w = cvs.clientWidth;
       const h = cvs.clientHeight;
       if (cvs.width !== w * dpr) {
-        cvs.width = w * dpr; cvs.height = h * dpr; ctx.scale(dpr, dpr);
+        cvs.width = w * dpr; cvs.height = h * dpr; ctx2d.scale(dpr, dpr);
       }
-      ctx.clearRect(0, 0, w, h);
+      ctx2d.clearRect(0, 0, w, h);
 
+      analyser.getByteFrequencyData(buf);
+
+      // Crossfade between real-FFT and idle note-profile based on how
+      // much energy is actually hitting the analyser. Below -60 dBFS
+      // → full idle; above -36 dBFS → full live.
+      let totalEnergy = 0;
+      for (let i = 2; i < 64; i++) totalEnergy += buf[i]; // low/mid band is enough to detect
+      const liveMix = Math.min(1, Math.max(0, (totalEnergy - 120) / 900));
+
+      const timeS = now / 1000;
       const gap = 2;
       const barW = Math.max(1.5, (w - gap * (bars - 1)) / bars);
-
-      if (analyser && buf) {
-        analyser.getByteFrequencyData(buf);
-      }
-
-      // Soft horizontal envelope so the strip fades at the edges —
-      // keeps the footer feeling like a visual accent, not a banner.
-      const envAt = (x) => Math.pow(Math.sin((x / w) * Math.PI), 0.5);
-
-      // Wall-clock time in seconds — used as the phase for idle breathing
-      // so the motion rate doesn't depend on frame cadence.
-      const timeS = now / 1000;
+      const envAt = (x) => Math.pow(Math.sin((x / w) * Math.PI), 0.55);
 
       for (let i = 0; i < bars; i++) {
-        let target;
-        if (analyser && buf) {
-          const [lo, hi] = binRanges[i];
-          let peak = 0;
-          for (let j = lo; j < hi; j++) if (buf[j] > peak) peak = buf[j];
-          target = peak / 255;
-        } else {
-          // Idle animation — three overlapping waves at different speeds
-          // so the baseline always feels alive. The 2.4 rad/s wave
-          // completes one cycle ~2.6 s, the slower ones take 5–7 s, so
-          // the row has a shifting, breathing pattern rather than a
-          // uniform pulse.
-          const t = (i / bars) * Math.PI * 2;
-          const breath =
-            Math.sin(t * 1.4 + timeS * 2.4) * 0.18 +
-            Math.sin(t * 0.55 + timeS * 1.2) * 0.12 +
-            Math.sin(t * 2.2 - timeS * 0.8) * 0.06 +
-            0.22;
-          target = Math.max(0, breath);
-        }
+        // Real FFT value for this bar
+        const [lo, hi] = binRanges[i];
+        let peak = 0;
+        for (let j = lo; j < hi; j++) if (buf[j] > peak) peak = buf[j];
+        const live = peak / 255;
 
-        // Slew-limit upward so bars "punch" on beats without jitter,
-        // and ease downward for a natural decay.
+        // Idle note-keyed value with subtle shimmer — 3 waves so the
+        // fundamental peak gently breathes instead of sitting still.
+        const shimmer =
+          1
+          + Math.sin(timeS * 1.8 + i * 0.22) * 0.18
+          + Math.sin(timeS * 0.9 - i * 0.11) * 0.12;
+        const idle = noteProfile[i] * shimmer * 0.32;
+
+        const target = live * liveMix + idle * (1 - liveMix);
+
         const prev = smoothed.current[i];
-        const next = target > prev ? prev + (target - prev) * 0.6 : prev + (target - prev) * 0.18;
+        const next = target > prev
+          ? prev + (target - prev) * 0.6   // fast attack
+          : prev + (target - prev) * 0.18; // slow release
         smoothed.current[i] = next;
 
         const x = i * (barW + gap);
         const env = envAt(x + barW / 2);
         const val = next * env;
-        const barH = Math.max(1.2, val * h * 0.9);
+        const barH = Math.max(1.2, val * h * 0.92);
         const y = h - barH;
 
-        // Ghost track: very dim gold rail at full height so even silent
-        // bars read as part of the row.
-        ctx.fillStyle = 'rgba(212,172,84,0.06)';
-        ctx.fillRect(x, 2, barW, h - 4);
+        // Ghost rail at full height so every bar reads even when silent.
+        ctx2d.fillStyle = 'rgba(212,172,84,0.06)';
+        ctx2d.fillRect(x, 2, barW, h - 4);
 
-        // Active bar gradient — darker at bottom, brighter at top.
-        const grad = ctx.createLinearGradient(x, y, x, h);
-        grad.addColorStop(0, `rgba(237, 232, 218, ${Math.min(0.95, 0.35 + val * 1.2)})`); // cream tip
-        grad.addColorStop(0.35, `rgba(212, 172, 84, ${Math.min(0.9, 0.25 + val * 1.2)})`);  // gold core
-        grad.addColorStop(1, 'rgba(143, 106, 36, 0.15)');                                   // deep gold base
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, y, barW, barH);
+        // Active bar: cream tip → gold → deep gold base gradient.
+        const grad = ctx2d.createLinearGradient(x, y, x, h);
+        grad.addColorStop(0,    `rgba(237, 232, 218, ${Math.min(0.95, 0.3 + val * 1.1)})`);
+        grad.addColorStop(0.4,  `rgba(212, 172, 84, ${Math.min(0.9, 0.25 + val * 1.1)})`);
+        grad.addColorStop(1,    'rgba(143, 106, 36, 0.15)');
+        ctx2d.fillStyle = grad;
+        ctx2d.fillRect(x, y, barW, barH);
       }
 
       if (!reducedMotion) frame.current = requestAnimationFrame(draw);
@@ -134,7 +157,7 @@ export default function AudioHistogram({ active = false, height = 72, bars = 44 
     else frame.current = requestAnimationFrame(draw);
 
     return () => { if (frame.current) cancelAnimationFrame(frame.current); };
-  }, [active, bars]);
+  }, [note, bars]);
 
   return (
     <canvas

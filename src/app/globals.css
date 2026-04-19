@@ -49,8 +49,9 @@ body { background: var(--bg); color: var(--cream); font-family: Georgia, serif; 
 .mono-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 4px; text-transform: uppercase; color: var(--cream-dim); }
 /* Canonical section subtitle — one tracking value across every page so
    "Where signal begins" / "Writing · Thinking" / "Make something" all
-   land in the same visual register. */
-.sub-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 5px; text-transform: uppercase; color: var(--cream-dim); }
+   land in the same visual register. Sized + coloured for legibility on
+   the warm dark bg — previously at 9px cream-dim it read as a ghost. */
+.sub-label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 4px; text-transform: uppercase; color: var(--cream-soft); }
 .section-title { font-family: Georgia, serif; font-size: clamp(28px, 5vw, 40px); font-weight: 400; letter-spacing: -1px; color: var(--cream); }
 
 /* ─── Extracted primitives ─────────────────────────────────────── */
