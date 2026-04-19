@@ -51,9 +51,15 @@ export function getAudioContext() {
 
   // Smaller fftSize = 4x less data to read per frame for the waveform.
   // 1024 still gives ~22ms window at 48kHz — plenty for visualisation.
+  // smoothingTimeConstant lowered to 0.5 — 0.85 smeared transients
+  // across a second; at 0.5 the bars snap visibly to beats and pings.
+  // dB window tightened so quiet drone signals light up meaningfully
+  // instead of sitting near the bottom of the byte range.
   _analyser = _ctx.createAnalyser();
   _analyser.fftSize = 1024;
-  _analyser.smoothingTimeConstant = 0.85;
+  _analyser.smoothingTimeConstant = 0.5;
+  _analyser.minDecibels = -85;
+  _analyser.maxDecibels = -20;
 
   _master.connect(comp);
   comp.connect(makeup);
