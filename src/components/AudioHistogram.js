@@ -13,7 +13,6 @@ export default function AudioHistogram({ active = false, height = 72, bars = 44 
   const cvsRef = useRef(null);
   const frame = useRef(null);
   const smoothed = useRef(new Array(bars).fill(0));
-  const phase = useRef(0);
 
   useEffect(() => {
     const cvs = cvsRef.current;
@@ -76,6 +75,10 @@ export default function AudioHistogram({ active = false, height = 72, bars = 44 
       // keeps the footer feeling like a visual accent, not a banner.
       const envAt = (x) => Math.pow(Math.sin((x / w) * Math.PI), 0.5);
 
+      // Wall-clock time in seconds — used as the phase for idle breathing
+      // so the motion rate doesn't depend on frame cadence.
+      const timeS = now / 1000;
+
       for (let i = 0; i < bars; i++) {
         let target;
         if (analyser && buf) {
@@ -84,14 +87,17 @@ export default function AudioHistogram({ active = false, height = 72, bars = 44 
           for (let j = lo; j < hi; j++) if (buf[j] > peak) peak = buf[j];
           target = peak / 255;
         } else {
-          // Idle animation — three overlapping slow sines so the
-          // baseline still looks alive without real audio.
-          phase.current += 0.0012;
+          // Idle animation — three overlapping waves at different speeds
+          // so the baseline always feels alive. The 2.4 rad/s wave
+          // completes one cycle ~2.6 s, the slower ones take 5–7 s, so
+          // the row has a shifting, breathing pattern rather than a
+          // uniform pulse.
           const t = (i / bars) * Math.PI * 2;
           const breath =
-            Math.sin(t * 1.3 + phase.current * 2.1) * 0.07 +
-            Math.sin(t * 0.6 + phase.current * 1.3) * 0.05 +
-            0.08;
+            Math.sin(t * 1.4 + timeS * 2.4) * 0.18 +
+            Math.sin(t * 0.55 + timeS * 1.2) * 0.12 +
+            Math.sin(t * 2.2 - timeS * 0.8) * 0.06 +
+            0.22;
           target = Math.max(0, breath);
         }
 
