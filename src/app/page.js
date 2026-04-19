@@ -23,18 +23,29 @@ const SECTIONS = [
 ];
 
 
+const NUDGE_KEY = 'padmanabha_saw_swipe_hint';
+
 export default function HomePage() {
   const [idx, setIdx] = useState(0);
   const [audioOn, setAudioOn] = useState(false);
   const [fading, setFading] = useState(false);
+  // First-visit only — the nudge shows until the visitor makes their
+  // first navigation move, then it's remembered in localStorage and
+  // never shown again.
+  const [showNudge, setShowNudge] = useState(false);
   const router = useRouter();
   const touchStart = useRef({ x: 0, y: 0 });
+  const dismissNudge = useCallback(() => {
+    setShowNudge(false);
+    try { window.localStorage.setItem(NUDGE_KEY, '1'); } catch (e) {}
+  }, []);
 
   const sec = SECTIONS[idx];
 
   // Navigate to section
   const goTo = useCallback((newIdx) => {
     if (newIdx < 0 || newIdx >= SECTIONS.length || newIdx === idx || fading) return;
+    if (showNudge) dismissNudge();
 
     // Section 8 = studio page — play the C3 transition and drop the drone
     // to section 8's level before navigating, so the AudioContext (which
@@ -95,11 +106,19 @@ export default function HomePage() {
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get('s');
     const n = Number.parseInt(raw ?? '', 10);
-    if (Number.isFinite(n) && n >= 0 && n < SECTIONS.length && n !== 0) {
-      setIdx(n);
-      if (isDroneActive()) updateDrone(n);
+    const startIdx = Number.isFinite(n) && n >= 0 && n < SECTIONS.length ? n : 0;
+    if (startIdx !== 0) {
+      setIdx(startIdx);
+      if (isDroneActive()) updateDrone(startIdx);
     }
     setAudioOn(isDroneActive());
+    // Only show the swipe nudge to first-time visitors landing on
+    // Origin (idx 0). Returning visitors or deep-linked arrivals to
+    // later sections don't need the onboarding.
+    try {
+      const seen = window.localStorage.getItem(NUDGE_KEY);
+      if (!seen && startIdx === 0) setShowNudge(true);
+    } catch (e) {}
   }, []);
 
   // Keyboard
@@ -158,7 +177,11 @@ export default function HomePage() {
         <button onClick={() => goTo(idx - 1)} className="nav-arrow" style={{ left: '12px' }}>‹</button>
       )}
       {idx < SECTIONS.length - 1 && (
-        <button onClick={() => goTo(idx + 1)} className="nav-arrow" style={{ right: '12px' }}>›</button>
+        <button
+          onClick={() => goTo(idx + 1)}
+          className={`nav-arrow ${showNudge && idx === 0 ? 'nudge-pulse' : ''}`}
+          style={{ right: '12px' }}
+        >›</button>
       )}
 
       {/* Sacred symbol */}
@@ -189,10 +212,22 @@ export default function HomePage() {
         {renderContent()}
       </div>
 
-      {/* Hint */}
-      <p className="fixed bottom-[82px] left-1/2 -translate-x-1/2 z-20 font-mono text-[9px] tracking-wider text-cream-dim/30">
-        {idx === 0 ? '← swipe or arrow keys →' : `${idx + 1} / ${SECTIONS.length}`}
-      </p>
+      {/* Hint — first-time visitors on Origin get an oversized swipe
+          cue; everyone else gets the tight position indicator. */}
+      {showNudge && idx === 0 ? (
+        <div className="fixed bottom-[110px] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none">
+          <span className="font-mono text-[11px] tracking-[4px] uppercase text-[var(--gold)]/80">
+            swipe left to begin
+          </span>
+          <span className="font-mono text-[9px] tracking-[3px] uppercase text-cream-dim/60">
+            or tap the arrow · arrow keys work too
+          </span>
+        </div>
+      ) : (
+        <p className="fixed bottom-[110px] left-1/2 -translate-x-1/2 z-20 font-mono text-[9px] tracking-wider text-cream-dim/40">
+          {`${idx + 1} / ${SECTIONS.length}`}
+        </p>
+      )}
 
     </div>
   );
