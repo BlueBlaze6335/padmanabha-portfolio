@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
+import { getAnalyser, isDroneActive } from '@/lib/audio/engine';
+
 const S = '#d4ac54';
 const W = 0.8;
 
@@ -85,6 +88,49 @@ export const symbols = {
   ),
 };
 
+// Sacred symbol with subtle audio-reactive life:
+// • Slow rotation (~40 s / rev) whenever the drone is playing.
+// • Scale pulses by ±4% with the analyser's low-band energy so the
+//   geometry "breathes" on each drone crest + drum hit.
+// Falls back to a still render when audio isn't engaged.
 export default function SacredSymbol({ id, className = '' }) {
-  return <div className={`transition-all duration-500 ${className}`}>{symbols[id]}</div>;
+  const wrap = useRef(null);
+  const raf = useRef(null);
+  const [alive, setAlive] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => setAlive(isDroneActive()), 300);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!alive) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      if (wrap.current) wrap.current.style.transform = '';
+      return;
+    }
+    const analyser = getAnalyser();
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    let smoothed = 0;
+    const startT = performance.now();
+    const draw = (now) => {
+      analyser.getByteFrequencyData(buf);
+      let e = 0;
+      for (let i = 1; i < 16; i++) e += buf[i]; // low-band energy
+      const target = Math.min(1, e / 700);
+      smoothed = smoothed * 0.85 + target * 0.15;
+      const scale = 1 + smoothed * 0.04; // ±4 % breathing
+      const deg = ((now - startT) / 40000) * 360; // 40 s per rotation
+      if (wrap.current) wrap.current.style.transform = `rotate(${deg}deg) scale(${scale})`;
+      raf.current = requestAnimationFrame(draw);
+    };
+    raf.current = requestAnimationFrame(draw);
+    return () => { if (raf.current) cancelAnimationFrame(raf.current); };
+  }, [alive]);
+
+  return (
+    <div ref={wrap} className={`transition-transform duration-500 will-change-transform ${className}`}>
+      {symbols[id]}
+    </div>
+  );
 }

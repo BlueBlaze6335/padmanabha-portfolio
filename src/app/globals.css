@@ -144,6 +144,23 @@ body { background: var(--bg); color: var(--cream); font-family: Georgia, serif; 
 .cell-bass  { background: #6b5a24; border-color: rgba(107,90,36,0.7); }       /* darker gold for low-end */
 
 /* Studio sliders — bigger touch targets, gold thumb, track in surface-gold */
+/* Tap ripple — gold ring emanating from every tap point. Pure
+   visual feedback layer; pointer-events none so it passes through. */
+.tap-ripple {
+  position: absolute;
+  width: 18px; height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  opacity: 0.75;
+  animation: tap-ripple 620ms cubic-bezier(0.2, 0.6, 0.2, 1) forwards;
+}
+@keyframes tap-ripple {
+  0%   { transform: scale(1);   opacity: 0.75; border-width: 1.5px; }
+  60%  { opacity: 0.45; }
+  100% { transform: scale(5.2); opacity: 0;    border-width: 0.5px; }
+}
+
 /* First-visit nudge — gentle pulse that guides the eye to the next
    action. Applied to the right nav arrow on Origin only, dismissed
    as soon as the visitor swipes, hits an arrow key, or taps it. */
